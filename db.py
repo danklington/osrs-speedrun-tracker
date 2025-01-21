@@ -13,6 +13,6 @@ connection_string = (
     'mariadb+mariadbconnector://'
     f'{DB_USERNAME}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 )
-engine = create_engine(connection_string)
+engine = create_engine(connection_string, connect_args={'ssl': False})
 
 Session = sessionmaker(bind=engine)
