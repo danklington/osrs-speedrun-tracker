@@ -117,27 +117,20 @@ async def submit_run(
 
     print(f'Runners submitted: {runners_submitted}')
 
-    # Query the database for all existing users.
-    existing_players = session.query(Players).all()
-
     # Compare the submitted players to the database of previous players.
     for runner in runners_submitted:
         # Check if the player is already in the database.
-        player_exists = False
-        for player in existing_players:
-            if player.discord_id == runner:
-                player_exists = True
-                print('Player exists in DB: ', runner)
-                break
-
-        # If the player is not found in the database, add them.
-        if not player_exists:
+        found_player = session.query(Players.discord_id == runner).first()
+        if not found_player:
             print(f'Player does not exist in the DB. Adding: {runner}')
             new_player = Players(
                 discord_id=runner, name=runners_submitted[runner]
             )
             session.add(new_player)
             session.flush()
+            continue
+
+        print(f'Player exists in DB: {runner}')
 
     # Commit everything.
     session.commit()
