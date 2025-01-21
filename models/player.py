@@ -3,8 +3,8 @@ from sqlalchemy import Column, Integer, String, BigInteger
 
 Base = declarative_base()
 
-class Players(Base):
-    __tablename__ = 'players'
+class Player(Base):
+    __tablename__ = 'player'
 
     id = Column(Integer, primary_key=True)
     name = Column(String(32), nullable=False)

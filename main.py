@@ -1,8 +1,9 @@
 from config import TOKEN
 from db import Session
-from models.players import Players
+from models.player import Player
 from models.raid_type import RaidType
-from models.speedrun_times import SpeedrunTimes
+from models.scale import Scale
+from models.speedrun_time import SpeedrunTime
 from util import format_discord_ids
 import interactions
 
@@ -20,6 +21,12 @@ raid_types = session.query(RaidType).all()
 raid_choices = []
 for raid in raid_types:
     raid_choices.append({'name': raid.identifier, 'value': raid.identifier})
+
+# Find the scales and construct a dictionary for the slash command.
+scales = session.query(Scale).all()
+scale_choices = []
+for scale in scales:
+    scale_choices.append({'name': scale.identifier, 'value': str(scale.value)})
 
 @interactions.slash_command(
     name='submit_run',
@@ -40,15 +47,9 @@ for raid in raid_types:
         ),
         interactions.SlashCommandOption(
             name='scale',
-            description='Submit the scale of the raid (1-5)',
+            description='Submit the scale of the raid',
             type=interactions.OptionType.STRING,
-            choices=[
-                {'name': 'Solo', 'value': '1'},
-                {'name': 'Duo', 'value': '2'},
-                {'name': 'Trio', 'value': '3'},
-                {'name': 'Four-man', 'value': '4'},
-                {'name': 'Five-man', 'value': '5'}
-            ],
+            choices=scale_choices,
             required=True
         ),
         interactions.SlashCommandOption(
@@ -112,10 +113,10 @@ async def submit_run(
     # Compare the submitted players to the database of previous players.
     for runner in runners_submitted:
         # Check if the player is already in the database.
-        found_player = session.query(Players.discord_id == runner).first()
+        found_player = session.query(Player.discord_id == runner).first()
         if not found_player:
             print(f'Player does not exist in the DB. Adding: {runner}')
-            new_player = Players(
+            new_player = Player(
                 discord_id=runner, name=runners_submitted[runner]
             )
             session.add(new_player)
