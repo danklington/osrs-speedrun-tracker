@@ -19,7 +19,7 @@ session = Session()
 raid_types = session.query(RaidType).all()
 raid_choices = []
 for raid in raid_types:
-    raid_choices.append({'name': raid.name, 'value': raid.identifier})
+    raid_choices.append({'name': raid.identifier, 'value': raid.identifier})
 
 @interactions.slash_command(
     name='submit_run',
@@ -27,7 +27,7 @@ for raid in raid_types:
     options=[
         interactions.SlashCommandOption(
             name='raid_type',
-            description='e.g. cox, tob, toa',
+            description='Which raid do you want to submit a time for?',
             type=interactions.OptionType.STRING,
             choices=raid_choices,
             required=True
@@ -76,14 +76,6 @@ async def submit_run(
     session = Session()
 
     print('DEBUG: ', raid_type, time, scale, runners, screenshot)
-
-    # Validate raid type.
-    raid_matched = session.query(RaidType).filter(
-        RaidType.identifier == raid_type
-    ).first()
-    if not raid_matched:
-        await ctx.send('Invalid raid type.')
-        return
 
     # Validate runner string.
     if not runners:
@@ -134,6 +126,9 @@ async def submit_run(
 
     # Commit everything.
     session.commit()
+
+    await ctx.send('Run submitted successfully!')
+    return
 
 
 bot.start()
