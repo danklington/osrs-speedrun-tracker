@@ -18,15 +18,15 @@ bot = interactions.Client(token=TOKEN, intents=intents)
 # Find the raid types and construct a dictionary for the slash command.
 session = Session()
 raid_types = session.query(RaidType).all()
-raid_choices = []
-for raid in raid_types:
-    raid_choices.append({'name': raid.identifier, 'value': raid.identifier})
+raid_choices = [
+    {'name': raid.identifier, 'value': raid.identifier} for raid in raid_types
+]
 
 # Find the scales and construct a dictionary for the slash command.
 scales = session.query(Scale).all()
-scale_choices = []
-for scale in scales:
-    scale_choices.append({'name': scale.identifier, 'value': str(scale.value)})
+scale_choices = [
+    {'name': scale.identifier, 'value': str(scale.value)} for scale in scales
+]
 
 @interactions.slash_command(
     name='submit_run',
@@ -76,7 +76,14 @@ async def submit_run(
 ):
     session = Session()
 
-    print('DEBUG: ', raid_type, time, scale, runners, screenshot)
+    print(
+        'DEBUG:\n'
+        f'Raid type: {raid_type}\n'
+        f'Time: {time}\n'
+        f'Scale: {scale}\n'
+        f'Runners: {runners}\n'
+        f'Screenshot URL: {screenshot}'
+    )
 
     # Validate runner string.
     if not runners:
@@ -84,10 +91,9 @@ async def submit_run(
         return
 
     # Sanitise the players input.
-    runners = runners.replace(' ', '')
+    runners = runners.replace(' ', '').split(',')
 
     # Make sure the runner string is formatted correctly.
-    runners = runners.split(',')
     for runner in runners:
         if runner[0:2] != '<@' or runner[-1] != '>' or runner.count('@') != 1:
             await ctx.send(
@@ -113,7 +119,9 @@ async def submit_run(
     # Compare the submitted players to the database of previous players.
     for runner in runners_submitted:
         # Check if the player is already in the database.
-        found_player = session.query(Player.discord_id == runner).first()
+        found_player = session.query(Player).filter(
+            Player.discord_id == runner
+        ).first()
         if not found_player:
             print(f'Player does not exist in the DB. Adding: {runner}')
             new_player = Player(
@@ -124,6 +132,33 @@ async def submit_run(
             continue
 
         print(f'Player exists in DB: {runner}')
+
+    # Find the raid type ID.
+    raid = session.query(RaidType).filter_by(
+        identifier=raid_type
+    ).first()
+
+    # Find the scale ID.
+    scale = session.query(Scale).filter_by(
+        value=scale
+    ).first()
+
+    # Find the players in the database.
+    runner_list = session.query(Player).filter(
+        Player.discord_id.in_(runner_list)
+    ).all()
+
+    runners = ', '.join([str(runner.id) for runner in runner_list])
+
+    # Create a new speedrun time.
+    new_time = SpeedrunTime(
+        raid_type_id=raid.id,
+        scale_id=scale.id,
+        time=time,
+        players=runners,
+        screenshot=screenshot
+    )
+    session.add(new_time)
 
     # Commit everything.
     session.commit()
