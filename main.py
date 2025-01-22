@@ -44,6 +44,19 @@ scale_choices = [
             required=True
         ),
         interactions.SlashCommandOption(
+            name='scale',
+            description='Submit the scale of the raid',
+            type=interactions.OptionType.STRING,
+            choices=scale_choices,
+            required=True
+        ),
+        interactions.SlashCommandOption(
+            name='runners',
+            description='Submit the names of the runner(s) (comma separated)',
+            type=interactions.OptionType.STRING,
+            required=True
+        ),
+        interactions.SlashCommandOption(
             name='minutes',
             description='Enter the minutes in the time you got',
             type=interactions.OptionType.INTEGER,
@@ -65,19 +78,6 @@ scale_choices = [
             type=interactions.OptionType.INTEGER,
             min_value=0,
             max_value=8,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='scale',
-            description='Submit the scale of the raid',
-            type=interactions.OptionType.STRING,
-            choices=scale_choices,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='runners',
-            description='Submit the names of the runner(s) (comma separated)',
-            type=interactions.OptionType.STRING,
             required=True
         ),
         interactions.SlashCommandOption(
@@ -286,6 +286,33 @@ async def delete_run(
     seconds: int,
     milliseconds: int
 ):
-    pass
+    session = Session()
+
+    # Validate the time submitted.
+    total_time_in_seconds = datetime.timedelta(
+        minutes=minutes,
+        seconds=seconds,
+        milliseconds=milliseconds * 100
+    ).total_seconds()
+
+    time_in_ticks = int(round(total_time_in_seconds / 0.6, 1))
+
+    run_found = session.query(SpeedrunTime).filter(
+        RaidType.identifier == raid_type,
+        SpeedrunTime.raid_type_id == RaidType.id,
+        Scale.value == scale,
+        SpeedrunTime.scale_id == Scale.id,
+        SpeedrunTime.time == time_in_ticks
+    ).first()
+
+    if run_found:
+        session.delete(run_found)
+        session.commit()
+        await ctx.send('Run deleted.')
+        return
+    else:
+        await ctx.send('Run not found.')
+        return
+
 
 bot.start()
