@@ -363,6 +363,11 @@ async def leaderboards(
         return
 
     output = ''
+    emoji_list = [
+        ':first_place:', ':second_place:', ':third_place:', ':four:', ':five:',
+        ':six:', ':seven:', ':eight:', ':nine:', ':keycap_ten:'
+    ]
+
     for index, run in enumerate(leaderboards):
         formatted_time = ticks_to_time_string(run.time)
         players = run.players.split(',')
@@ -373,18 +378,14 @@ async def leaderboards(
             ).first()
             player_names.append(player_obj.name)
         player_string = ', '.join(player_names)
-        if index == 0:
-            output += f'{chr(0x1F947)} // '  # Gold medal emoji.
-        elif index == 1:
-            output += f'{chr(0x1F948)} // '  # Silver medal emoji.
-        elif index == 2:
-            output += f'{chr(0x1F949)} // '  # Bronze medal emoji.
-        else:
-            output += f'**{index + 1}** // '
-        output += f'{formatted_time} - {player_string}\n\n'
+        output += (
+            emoji_list[index] if index < len(emoji_list) else ':keycap_ten:'
+        )
+
+        output += f' | `{formatted_time}` - **{player_string}**\n\n'
 
     embed = interactions.Embed(
-        title=f'Leaderboards for {raid.identifier} ({scale.identifier} scale)',
+        title=f'Leaderboard for {raid.identifier} ({scale.identifier} scale)',
         description=output,
         color=0xc1005d,
     )
