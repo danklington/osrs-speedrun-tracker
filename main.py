@@ -100,6 +100,12 @@ async def submit_run(
 ):
     session = Session()
 
+
+    # Make sure image is a PNG or JPEG.
+    if screenshot.content_type not in ['image/png', 'image/jpeg']:
+        await ctx.send('The image submitted is not a PNG or JPEG.')
+        return
+
     # Validate the time submitted.
     total_time_in_seconds = datetime.timedelta(
         minutes=minutes,
@@ -114,11 +120,6 @@ async def submit_run(
 
     time_in_ticks = int(round(total_time_in_seconds / 0.6, 1))
 
-    # Make sure image is a PNG or JPEG.
-    if screenshot.content_type not in ['image/png', 'image/jpeg']:
-        await ctx.send('The image submitted is not a PNG or JPEG.')
-        return
-
     # Validate runner string.
     if not runners:
         await ctx.send('Please submit at least one runner.')
@@ -131,27 +132,36 @@ async def submit_run(
     for runner in runners:
         if runner[0:2] != '<@' or runner[-1] != '>' or runner.count('@') != 1:
             await ctx.send(
-                'One or more of the runners is not formatted correctly.'
+                'One or more of the runners has not been entered correctly.'
             )
             return
 
     # Remove the '<@' and '>' from the runner string.
-    runner_list = format_discord_ids(runners)
+    formatted_runners_list = format_discord_ids(runners)
 
     # Associate the runner IDs with their names.
-    runners_submitted = {}
-    for runner in runner_list:
+    discord_id_and_names = {}
+    for runner in formatted_runners_list:
         member = ctx.guild.get_member(runner)
         if member:
-            runners_submitted[runner] = member.display_name
+            discord_id_and_names[runner] = member.display_name
         else:
             await ctx.send('User does not exist in the server.')
             return
 
-    print(f'Runners submitted: {runners_submitted}')
+    print(f'Runners submitted: {discord_id_and_names}')
+
+    # Make sure the number of submitted runners matches the number of players
+    # for the scale.
+    if len(discord_id_and_names) != scale:
+        await ctx.send(
+            'The number of runners submitted does not match the scale of '
+            f'the raid. Expected {scale}, got {len(discord_id_and_names)}.'
+        )
+        return
 
     # Compare the submitted players to the database of previous players.
-    for runner in runners_submitted:
+    for runner in discord_id_and_names:
         # Check if the player is already in the database.
         found_player = session.query(Player).filter(
             Player.discord_id == runner
@@ -159,7 +169,7 @@ async def submit_run(
         if not found_player:
             print(f'Player does not exist in the DB. Adding: {runner}')
             new_player = Player(
-                discord_id=runner, name=runners_submitted[runner]
+                discord_id=runner, name=discord_id_and_names[runner]
             )
             session.add(new_player)
             session.flush()
@@ -169,12 +179,12 @@ async def submit_run(
 
     # Find the players in the database.
     existing_runners = session.query(Player).filter(
-        Player.discord_id.in_(runner_list)
+        Player.discord_id.in_(formatted_runners_list)
     ).all()
 
     # Format the runners for the database query, and for adding it later if we
     # do not find an identical run.
-    formatted_runner_string = ','.join(
+    runner_db_id_string = ','.join(
         [str(runner.id) for runner in existing_runners]
     )
 
@@ -185,7 +195,7 @@ async def submit_run(
         Scale.value == scale,
         SpeedrunTime.scale_id == Scale.id,
         SpeedrunTime.time == time_in_ticks,
-        SpeedrunTime.players == formatted_runner_string
+        SpeedrunTime.players == runner_db_id_string
     ).first()
     if run_exists:
         await ctx.send('An identical raid time has already been submitted.')
@@ -210,7 +220,7 @@ async def submit_run(
         raid_type_id=raid.id,
         scale_id=scale.id,
         time=time_in_ticks,
-        players=formatted_runner_string,
+        players=runner_db_id_string,
         screenshot=image_name
     )
     session.add(new_time)
@@ -218,6 +228,7 @@ async def submit_run(
     # Commit everything.
     session.commit()
 
+    # Format the time for the response.
     formatted_time = ticks_to_time_string(time_in_ticks)
 
     await ctx.send(
@@ -378,10 +389,7 @@ async def leaderboards(
             ).first()
             player_names.append(player_obj.name)
         player_string = ', '.join(player_names)
-        output += (
-            emoji_list[index] if index < len(emoji_list) else ':keycap_ten:'
-        )
-
+        output += emoji_list[index]
         output += f' | `{formatted_time}` - **{player_string}**\n\n'
 
     embed = interactions.Embed(
