@@ -19,6 +19,9 @@ intents.members = True
 # Initialize the bot.
 bot = interactions.Client(token=TOKEN, intents=intents)
 
+# Embed colour:
+EMBED_COLOUR = 0xc1005d
+
 # Find the raid types and construct a dictionary for the slash command.
 session = Session()
 raid_types = session.query(RaidType).all()
@@ -395,11 +398,119 @@ async def leaderboards(
     embed = interactions.Embed(
         title=f'Leaderboard for {raid.identifier} ({scale.identifier} scale)',
         description=output,
-        color=0xc1005d,
+        color=EMBED_COLOUR
     )
 
     await ctx.send(embed=embed)
     return
+
+
+@interactions.slash_command(
+    name='pb',
+    description='Display a player\'s personal best for a raid',
+    options=[
+        interactions.SlashCommandOption(
+            name='raid_type',
+            description='Which raid do you want to see the leaderboards for?',
+            type=interactions.OptionType.STRING,
+            choices=raid_choices,
+            required=True
+        ),
+        interactions.SlashCommandOption(
+            name='scale',
+            description='Enter the scale of the raid',
+            type=interactions.OptionType.INTEGER,
+            choices=scale_choices,
+            required=True
+        ),
+        interactions.SlashCommandOption(
+            name='runner',
+            description='Enter the name of the runner',
+            type=interactions.OptionType.USER,
+            required=True
+        )
+    ]
+)
+async def pb(
+    ctx: interactions.SlashContext,
+    raid_type: str,
+    scale: int,
+    runner: interactions.Member
+):
+    session = Session()
+
+    # Find the raid type ID.
+    raid = session.query(RaidType).filter(
+        RaidType.identifier == raid_type
+    ).first()
+
+    # Find the scale ID.
+    scale = session.query(Scale).filter(
+        Scale.value == scale
+    ).first()
+
+    # Find the player.
+    player = session.query(Player).filter(
+        Player.discord_id == str(runner.id)
+    ).first()
+
+    if not player:
+        await ctx.send('Player not found in database.')
+        return
+
+    # Find the player's personal best.
+    pb_time = session.query(SpeedrunTime).filter(
+        SpeedrunTime.raid_type_id == raid.id,
+        SpeedrunTime.scale_id == scale.id,
+        SpeedrunTime.players.contains(str(player.id))
+    ).order_by(SpeedrunTime.time).first()
+
+    if not pb_time:
+        await ctx.send('No personal best found.')
+        return
+
+    all_runners = pb_time.players.split(',')
+
+    # Find the names of the runners.
+    runner_names = []
+    for runner in all_runners:
+        player_obj = session.query(Player).filter(
+            Player.id == runner
+        ).first()
+        runner_names.append(player_obj.name)
+
+    formatted_time = ticks_to_time_string(pb_time.time)
+
+
+    output = (
+        '### :man_running_facing_right: '
+        f'Runner{'s' if scale.value > 1 else ''}:\n'
+        f'**{", ".join(runner_names)}**\n\n'
+        f'### :clock1: Time:\n'
+        f'### `{formatted_time}`'
+    )
+
+    embed = interactions.Embed(
+        title=(
+            f'{player.name}\'s personal best for {raid.identifier} '
+            f'({scale.identifier} scale)'
+        ),
+        description=output,
+        color=EMBED_COLOUR
+    )
+
+    # Load the screenshot.
+    screenshot = interactions.File(f'attachments/{pb_time.screenshot}')
+    embed.set_image(url=f'attachment://{pb_time.screenshot}')
+
+    try:
+        await ctx.send(embed=embed, files=[screenshot])
+        return
+
+    # If the image file is not found, send the embed without the image.
+    except FileNotFoundError:
+        await ctx.send(embed=embed)
+        return
 
 
 bot.start()
