@@ -1,3 +1,5 @@
+from db import Session
+from models.player import Player
 from decimal import Decimal, getcontext
 import aiohttp
 import datetime
@@ -33,6 +35,16 @@ def ticks_to_time_string(ticks: int) -> str:
     time_obj = datetime.datetime.utcfromtimestamp(seconds)
     return time_obj.strftime('%M:%S.%f')[:-5]
 
+def time_string_to_ticks(time_string: str) -> int:
+    """ Converts a formatted string to ticks. """
+
+    time_obj = datetime.datetime.strptime(time_string, '%M:%S.%f')
+    return int((
+        (time_obj.minute * 60) +
+        time_obj.second +
+        (time_obj.microsecond / 1000000)
+    ) / 0.6)
+
 async def download_attachment(
     screenshot: interactions.Attachment, save_as: str
 ) -> None:
@@ -56,3 +68,42 @@ async def download_attachment(
                 raise Exception(
                     f"Failed to download attachment: {response.status}"
                 )
+
+def add_runners_to_database(runners: dict) -> None:
+    """ Adds the runners to the database. """
+
+    session = Session()
+
+    # Compare the submitted players to the database of previous players.
+    for discord_id in runners:
+        # Check if the player is already in the database.
+        found_player = session.query(Player).filter(
+            Player.discord_id == discord_id
+        ).first()
+        if not found_player:
+            print(f'Player does not exist in the DB. Adding: {discord_id}')
+            new_player = Player(
+                discord_id=discord_id, name=runners[discord_id]
+            )
+            session.add(new_player)
+            session.flush()
+            continue
+
+        print(f'Player exists in DB: {discord_id}')
+
+    session.commit()
+
+def get_discord_name_from_ids(
+    ctx: interactions.SlashContext, discord_ids: list[int]
+) -> dict:
+    """ Retrieves the Discord name from the database. """
+
+    discord_id_and_names = {}
+    for runner in discord_ids:
+        member = ctx.guild.get_member(runner)
+        if member:
+            discord_id_and_names[runner] = member.display_name
+        else:
+            return None
+
+    return discord_id_and_names
