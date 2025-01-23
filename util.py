@@ -31,7 +31,7 @@ def ticks_to_time_string(ticks: int) -> str:
 
     seconds = ticks * 0.6
     time_obj = datetime.datetime.utcfromtimestamp(seconds)
-    return time_obj.strftime('%H:%M:%S.%f')[:-5]
+    return time_obj.strftime('%M:%S.%f')[:-5]
 
 async def download_attachment(
     screenshot: interactions.Attachment, save_as: str

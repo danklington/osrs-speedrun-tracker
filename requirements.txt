@@ -2,6 +2,7 @@ aiohappyeyeballs==2.4.4
 aiohttp==3.11.11
 aiosignal==1.3.2
 attrs==24.3.0
+audioop-lts==0.2.1
 croniter==6.0.0
 discord-py-interactions==5.13.2
 discord-typings==0.9.0

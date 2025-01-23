@@ -46,7 +46,7 @@ scale_choices = [
         interactions.SlashCommandOption(
             name='scale',
             description='Submit the scale of the raid',
-            type=interactions.OptionType.STRING,
+            type=interactions.OptionType.INTEGER,
             choices=scale_choices,
             required=True
         ),
@@ -94,7 +94,7 @@ async def submit_run(
     minutes: int,
     seconds: int,
     milliseconds: int,
-    scale: str,
+    scale: int,
     runners: str,
     screenshot: interactions.Attachment
 ):
@@ -196,13 +196,13 @@ async def submit_run(
     await download_attachment(screenshot, image_name)
 
     # Find the raid type ID.
-    raid = session.query(RaidType).filter_by(
-        identifier=raid_type
+    raid = session.query(RaidType).filter(
+        RaidType.identifier == raid_type
     ).first()
 
     # Find the scale ID.
-    scale = session.query(Scale).filter_by(
-        value=scale
+    scale = session.query(Scale).filter(
+        Scale.value == scale
     ).first()
 
     # Create a new speedrun time.
@@ -241,7 +241,7 @@ async def submit_run(
         interactions.SlashCommandOption(
             name='scale',
             description='Enter the scale of the raid',
-            type=interactions.OptionType.STRING,
+            type=interactions.OptionType.INTEGER,
             choices=scale_choices,
             required=True
         ),
@@ -280,7 +280,7 @@ async def submit_run(
 async def delete_run(
     ctx: interactions.SlashContext,
     raid_type: str,
-    scale: str,
+    scale: int,
     runners: str,
     minutes: int,
     seconds: int,
@@ -313,6 +313,84 @@ async def delete_run(
     else:
         await ctx.send('Run not found.')
         return
+
+
+@interactions.slash_command(
+    name='leaderboards',
+    description='Get the leaderboards for a raid',
+    options=[
+        interactions.SlashCommandOption(
+            name='raid_type',
+            description='Which raid do you want to see the leaderboards for?',
+            type=interactions.OptionType.STRING,
+            choices=raid_choices,
+            required=True
+        ),
+        interactions.SlashCommandOption(
+            name='scale',
+            description='Enter the scale of the raid',
+            type=interactions.OptionType.INTEGER,
+            choices=scale_choices,
+            required=True
+        )
+    ]
+)
+async def leaderboards(
+    ctx: interactions.SlashContext,
+    raid_type: str,
+    scale: int
+):
+    session = Session()
+
+    # Find the raid type ID.
+    raid = session.query(RaidType).filter(
+        RaidType.identifier == raid_type
+    ).first()
+
+    # Find the scale ID.
+    scale = session.query(Scale).filter(
+        Scale.value == scale
+    ).first()
+
+    # Find the leaderboards.
+    leaderboards = session.query(SpeedrunTime).filter(
+        SpeedrunTime.raid_type_id == raid.id,
+        SpeedrunTime.scale_id == scale.id
+    ).order_by(SpeedrunTime.time).limit(10).all()
+
+    if not leaderboards:
+        await ctx.send('No leaderboards found.')
+        return
+
+    output = ''
+    for index, run in enumerate(leaderboards):
+        formatted_time = ticks_to_time_string(run.time)
+        players = run.players.split(',')
+        player_names = []
+        for player in players:
+            player_obj = session.query(Player).filter(
+                Player.id == player
+            ).first()
+            player_names.append(player_obj.name)
+        player_string = ', '.join(player_names)
+        if index == 0:
+            output += f'{chr(0x1F947)} // '  # Gold medal emoji.
+        elif index == 1:
+            output += f'{chr(0x1F948)} // '  # Silver medal emoji.
+        elif index == 2:
+            output += f'{chr(0x1F949)} // '  # Bronze medal emoji.
+        else:
+            output += f'**{index + 1}** // '
+        output += f'{formatted_time} - {player_string}\n\n'
+
+    embed = interactions.Embed(
+        title=f'Leaderboards for {raid.identifier} ({scale.identifier} scale)',
+        description=output,
+        color=0xc1005d,
+    )
+
+    await ctx.send(embed=embed)
+    return
 
 
 bot.start()
