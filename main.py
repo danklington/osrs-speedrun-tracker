@@ -678,8 +678,11 @@ async def submit_cm_from_clipboard(
         await cm_raid_pb.display()
 
     else:
-        message = ('The run submitted is not a personal best.')
-        embed = error_to_embed('Submission', message)
+        message = (
+            'The run submitted is not a personal best.\n'
+            'Any room times that were faster have still been updated.'
+        )
+        embed = confirmation_to_embed('Submission', message)
         await ctx.send(embed=embed)
 
     session.commit()

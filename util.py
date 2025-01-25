@@ -165,7 +165,10 @@ def is_valid_cm_paste(parsed_paste: dict) -> bool:
 
     # Check if the values have decimals.
     for key, value in parsed_paste.items():
-        if not is_valid_gametime(value):
+        # Ignore size key as this shouldn't be a decimal.
+        if key == 'size':
+            continue
+        if '.' not in value:
             return False
 
     # Remove first 3 elements because they're just IDs.
