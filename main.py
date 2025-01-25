@@ -1,16 +1,21 @@
 from config import TOKEN
 from db import Session
+from embed import leaderboard_to_embed
+from embed import pb_to_embed
 from models.cm_individual_room_pb_time import CmIndividualRoomPbTime
 from models.cm_raid_pb_time import CmRaidPbTime
+from models.leaderboards import Leaderboards
+from models.pb import Pb
 from models.player import Player
 from models.raid_type import RaidType
 from models.scale import Scale
 from models.speedrun_time import SpeedrunTime
-from sqlalchemy import func
 from util import add_runners_to_database
 from util import download_attachment
 from util import format_discord_ids
 from util import get_discord_name_from_ids
+from util import get_raid_choices
+from util import get_scale_choices
 from util import is_valid_gametime
 from util import ticks_to_time_string
 from util import time_string_to_ticks
@@ -26,23 +31,10 @@ intents.members = True
 # Initialize the bot.
 bot = interactions.Client(token=TOKEN, intents=intents)
 
-# Embed colour.
-EMBED_COLOUR = 0xc1005d
+# Get all raid and scale choices for the slash commands.
+raid_choices = get_raid_choices()
+scale_choices = get_scale_choices()
 
-# Find the raid types and construct a dictionary for the slash command.
-session = Session()
-raid_types = session.query(RaidType).all()
-raid_choices = [
-    {'name': raid.identifier, 'value': raid.identifier} for raid in raid_types
-]
-raid_choices = sorted(raid_choices, key=lambda x: x['name'])
-
-# Find the scales and construct a dictionary for the slash command.
-scales = session.query(Scale).all()
-scale_choices = [
-    {'name': scale.identifier, 'value': str(scale.value)} for scale in scales
-]
-scale_choices = sorted(scale_choices, key=lambda x: x['value'])
 
 @interactions.slash_command(
     name='submit_run',
@@ -191,7 +183,7 @@ async def submit_run(
         return
 
     # Save the screenshot.
-    image_name = f'{screenshot.id}.{screenshot.content_type.split("/")[1]}'
+    image_name = f'{screenshot.id}.{screenshot.content_type.split('/')[1]}'
     await download_attachment(screenshot, image_name)
 
     # Find the raid type ID.
@@ -219,6 +211,8 @@ async def submit_run(
 
     # Format the time for the response.
     formatted_time = ticks_to_time_string(time_in_ticks)
+
+    # TODO: Create an embed for the response.
 
     await ctx.send(
         f'Submitted {formatted_time} in {raid.identifier} with '
@@ -340,61 +334,15 @@ async def leaderboards(
     raid_type: str,
     scale: int
 ):
-    session = Session()
+    lb = Leaderboards(raid_type, scale)
 
-    # Find the raid type ID.
-    raid = session.query(RaidType).filter(
-        RaidType.identifier == raid_type
-    ).first()
-
-    # Find the scale ID.
-    scale = session.query(Scale).filter(
-        Scale.value == scale
-    ).first()
-
-    # Find the leaderboards.
-    subquery = session.query(
-        SpeedrunTime.players,
-        func.min(SpeedrunTime.time).label('best_time')
-    ).filter(
-        SpeedrunTime.raid_type_id == raid.id,
-        SpeedrunTime.scale_id == scale.id
-    ).group_by(SpeedrunTime.players).subquery()
-
-    leaderboards = session.query(SpeedrunTime).join(
-        subquery,
-        (SpeedrunTime.players == subquery.c.players) &
-        (SpeedrunTime.time == subquery.c.best_time)
-    ).order_by(SpeedrunTime.time).limit(10).all()
-
-    if not leaderboards:
+    leaderboard = lb.get_leaderboard()
+    if not leaderboard:
         await ctx.send('No leaderboards found.')
         return
 
-    output = ''
-    emoji_list = [
-        ':first_place:', ':second_place:', ':third_place:', ':four:', ':five:',
-        ':six:', ':seven:', ':eight:', ':nine:', ':keycap_ten:'
-    ]
-
-    for index, run in enumerate(leaderboards):
-        formatted_time = ticks_to_time_string(run.time)
-        players = run.players.split(',')
-        player_names = []
-        for player in players:
-            player_obj = session.query(Player).filter(
-                Player.id == player
-            ).first()
-            player_names.append(player_obj.name)
-        player_string = ', '.join(player_names)
-        output += emoji_list[index]
-        output += f' | `{formatted_time}` - **{player_string}**\n\n'
-
-    embed = interactions.Embed(
-        title=f'Leaderboard for {raid.identifier} ({scale.identifier} scale)',
-        description=output,
-        color=EMBED_COLOUR
-    )
+    embed = leaderboard_to_embed(leaderboard)
+    embed.title = f'Leaderboard for {raid_type} ({lb.scale.identifier} scale)'
 
     await ctx.send(embed=embed)
     return
@@ -432,80 +380,28 @@ async def pb(
     scale: int,
     runner: interactions.Member
 ):
-    session = Session()
-
-    # Find the raid type ID.
-    raid = session.query(RaidType).filter(
-        RaidType.identifier == raid_type
-    ).first()
-
-    # Find the scale ID.
-    scale = session.query(Scale).filter(
-        Scale.value == scale
-    ).first()
-
-    # Find the player.
-    player = session.query(Player).filter(
-        Player.discord_id == str(runner.id)
-    ).first()
-
-    if not player:
+    personal_best = Pb(raid_type, scale, runner)
+    if not personal_best.player:
         await ctx.send('Player not found in database.')
         return
 
-    # Find the player's personal best.
-    pb_time = session.query(SpeedrunTime).filter(
-        SpeedrunTime.raid_type_id == raid.id,
-        SpeedrunTime.scale_id == scale.id,
-        SpeedrunTime.players.contains(str(player.id))
-    ).order_by(SpeedrunTime.time).first()
-
+    pb_time = personal_best.get_pb()
     if not pb_time:
         await ctx.send('No personal best found.')
         return
 
-    all_runners = pb_time.players.split(',')
+    embed = pb_to_embed(personal_best, pb_time)
 
-    # Find the names of the runners.
-    runner_names = []
-    for runner in all_runners:
-        player_obj = session.query(Player).filter(
-            Player.id == runner
-        ).first()
-        runner_names.append(player_obj.name)
-
-    formatted_time = ticks_to_time_string(pb_time.time)
-
-
-    output = (
-        '### :man_running_facing_right: '
-        f'Runner{'s' if scale.value > 1 else ''}:\n'
-        f'**{", ".join(runner_names)}**\n\n'
-        f'### :clock1: Time:\n'
-        f'### `{formatted_time}`'
-    )
-
-    embed = interactions.Embed(
-        title=(
-            f'{player.name}\'s personal best for {raid.identifier} '
-            f'({scale.identifier} scale)'
-        ),
-        description=output,
-        color=EMBED_COLOUR
-    )
-
-    # Load the screenshot.
-    screenshot = interactions.File(f'attachments/{pb_time.screenshot}')
-    embed.set_image(url=f'attachment://{pb_time.screenshot}')
-
-    try:
+    if pb_time.screenshot:
+        screenshot = interactions.File(f'attachments/{pb_time.screenshot}')
         await ctx.send(embed=embed, files=[screenshot])
         return
 
-    # If the image file is not found, send the embed without the image.
-    except FileNotFoundError:
+    # If there is no screenshot, send the embed without a file.
+    else:
         await ctx.send(embed=embed)
         return
+
 
 @interactions.slash_command(
     name='submit_cm_from_clipboard',
@@ -538,8 +434,7 @@ async def submit_cm_from_clipboard(
 
     # Remove the last 6 elements as they are not useful, and remove elements
     # that do not contain a colon.
-    room_times = room_times[:-6]
-    room_times = [x.lower() for x in room_times if ':' in x]
+    room_times = [x.lower() for x in room_times[:-6] if ':' in x]
 
     # Strip unneeded characters.
     room_times = [x.replace(' ', '').replace('|', '') for x in room_times]
@@ -645,7 +540,7 @@ async def submit_cm_from_clipboard(
         session.add(speedrun_time)
         session.flush()
 
-    # Add the run to the database.
+    # Update individual room time PBs per player.
     for runner in existing_runners:
         # Get the player's best room times.
         best_times = session.query(CmIndividualRoomPbTime).filter(
@@ -686,12 +581,12 @@ async def submit_cm_from_clipboard(
         return
 
     # Check if the run is a PB.
-    is_pb = session.query(CmRaidPbTime).filter(
+    better_run_exists = session.query(CmRaidPbTime).filter(
         CmRaidPbTime.scale_id == cm_raid_scale.id,
         CmRaidPbTime.speedrun_time_id == speedrun_time.id,
-        CmRaidPbTime.completed > total_raid_time
+        CmRaidPbTime.completed < total_raid_time
     ).first()
-    if is_pb:
+    if not better_run_exists:
         new_run = CmRaidPbTime(
             scale_id=scale,
             speedrun_time_id=speedrun_time.id,

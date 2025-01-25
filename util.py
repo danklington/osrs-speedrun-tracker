@@ -1,10 +1,39 @@
 from db import Session
-from models.player import Player
 from decimal import Decimal, getcontext
+from models.player import Player
+from models.raid_type import RaidType
+from models.scale import Scale
 import aiohttp
 import datetime
 import interactions
 import os
+
+
+def get_raid_choices() -> list[interactions.SlashCommandChoice]:
+    """ Returns the choices for all raid types. """
+
+    session = Session()
+    raid_types = session.query(RaidType).all()
+    raid_choices = [
+        {'name': raid.identifier, 'value': raid.identifier}
+        for raid in raid_types
+    ]
+
+    return sorted(raid_choices, key=lambda x: x['name'])
+
+
+def get_scale_choices() -> list[interactions.SlashCommandChoice]:
+    """ Returns the choices for all scales. """
+
+    session = Session()
+    scales = session.query(Scale).all()
+    scale_choices = [
+        {'name': scale.identifier, 'value': scale.value}
+        for scale in scales
+    ]
+
+    return sorted(scale_choices, key=lambda x: x['value'])
+
 
 def format_discord_ids(discord_ids: list[str]) -> list[int]:
     """ IDs when submitted as a string come through as '<@000000000000000000>'.
@@ -35,6 +64,7 @@ def ticks_to_time_string(ticks: int) -> str:
     time_obj = datetime.datetime.utcfromtimestamp(seconds)
     return time_obj.strftime('%M:%S.%f')[:-5]
 
+
 def time_string_to_ticks(time_string: str) -> int:
     """ Converts a formatted string to ticks. """
 
@@ -44,6 +74,7 @@ def time_string_to_ticks(time_string: str) -> int:
         time_obj.second +
         (time_obj.microsecond / 1000000)
     ) / 0.6)
+
 
 async def download_attachment(
     screenshot: interactions.Attachment, save_as: str
@@ -69,6 +100,7 @@ async def download_attachment(
                     f"Failed to download attachment: {response.status}"
                 )
 
+
 def add_runners_to_database(runners: dict) -> None:
     """ Adds the runners to the database. """
 
@@ -92,6 +124,7 @@ def add_runners_to_database(runners: dict) -> None:
         print(f'Player exists in DB: {discord_id}')
 
     session.commit()
+
 
 def get_discord_name_from_ids(
     ctx: interactions.SlashContext, discord_ids: list[int]
