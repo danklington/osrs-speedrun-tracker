@@ -7,7 +7,8 @@ import interactions
 
 class Pb():
     def __init__(
-        self, raid_type: str = None,
+        self,
+        raid_type: str = None,
         scale: int = None,
         runner: interactions.Member = None
     ):
