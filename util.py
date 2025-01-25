@@ -163,6 +163,11 @@ def is_valid_cm_paste(parsed_paste: dict) -> bool:
         (e.g. {'tekton': '1:04.8', ...})
     """
 
+    # Check if the values have decimals.
+    for key, value in parsed_paste.items():
+        if not is_valid_gametime(value):
+            return False
+
     # Remove first 3 elements because they're just IDs.
     expected_keys = CmRaidPbTime.__table__.columns.keys()[3:]
 
