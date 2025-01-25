@@ -58,6 +58,14 @@ class Pb():
 
         return runner_names
 
+    def get_all_players_in_pb(self) -> list[Player]:
+        pb = self.get_pb()
+        players = session.query(Player).filter(
+            Player.id.in_([int(player) for player in pb.players.split(',')])
+        ).all()
+
+        return players
+
     async def display(self) -> None:
         from embed import error_to_embed
         from embed import pb_to_embed
