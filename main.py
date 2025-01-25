@@ -431,7 +431,12 @@ async def pb(
         personal_best.raid_type.identifier ==
         'Chambers of Xeric: Challenge Mode'
     ):
-        cm_raid_pb = CmRaidPb(ctx, scale, personal_best.players)
+        # Get all players in the raid.
+        pb = personal_best.get_pb()
+        all_players = session.query(Player).filter(
+            Player.id.in_([int(x) for x in pb.players.split(',')])
+        ).all()
+        cm_raid_pb = CmRaidPb(ctx, scale, all_players)
         await cm_raid_pb.display()
         return
 

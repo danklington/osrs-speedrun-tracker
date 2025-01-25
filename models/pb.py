@@ -250,6 +250,7 @@ class CmIndividualRoomPb():
     def get_individual_room_times(self) -> CmIndividualRoomPbTime:
         room_times = session.query(CmIndividualRoomPbTime).filter(
             CmIndividualRoomPbTime.player_id == self.player.id,
+            CmIndividualRoomPbTime.scale_id == self.scale.id
         ).first()
 
         return room_times
