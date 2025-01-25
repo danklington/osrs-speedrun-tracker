@@ -48,20 +48,18 @@ class Leaderboards():
 
         return leaderboards
 
-    async def display(self):
+    async def display(self) -> None:
+        from embed import error_to_embed
         from embed import leaderboard_to_embed
 
         leaderboard = self.get_leaderboard()
         if not leaderboard:
-            await self.ctx.send(
-                'Placeholder until embed for no leaderboard is made.'
+            embed = error_to_embed(
+                'No leaderboard found',
+                'There are no runs in this leaderboard yet.'
             )
+            await self.ctx.send(embed=embed)
             return
 
         embed = leaderboard_to_embed(self)
-        embed.title = (
-            f'{self.raid_type.identifier} '
-            f'({self.scale.identifier} scale) leaderboard'
-        )
-
         await self.ctx.send(embed=embed)

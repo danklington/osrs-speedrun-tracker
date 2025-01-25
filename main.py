@@ -5,7 +5,7 @@ from embed import error_to_embed
 from models.cm_individual_room_pb_time import CmIndividualRoomPbTime
 from models.cm_raid_pb_time import CmRaidPbTime
 from models.leaderboards import Leaderboards
-from models.pb import Pb
+from models.pb import Pb, CmRaidPb, CmIndividualRoomPb
 from models.player import Player
 from models.raid_type import RaidType
 from models.scale import Scale
@@ -18,7 +18,6 @@ from util import get_raid_choices
 from util import get_scale_choices
 from util import is_valid_cm_paste
 from util import is_valid_gametime
-from util import sync_screenshot_state
 from util import ticks_to_time_string
 from util import time_string_to_ticks
 import datetime
@@ -223,14 +222,16 @@ async def submit_run(
 
     # Format the time for the response.
     formatted_time = ticks_to_time_string(time_in_ticks)
-
     message = (
         f'Submitted `{formatted_time}` in {raid.identifier} with '
         f'{scale.identifier} scale.'
     )
     embed = confirmation_to_embed('Submission', message)
-
     await ctx.send(embed=embed)
+
+    # Display the new time.
+    pb = Pb(ctx, raid_type, scale.value, existing_runners)
+    await pb.display()
 
 
 @interactions.slash_command(
@@ -414,14 +415,49 @@ async def pb(
     scale: int,
     runner: interactions.Member
 ):
-    personal_best = Pb(ctx, raid_type, scale, runner)
+    player = session.query(Player).filter(
+        Player.discord_id == str(runner.id)
+    ).first()
+    personal_best = Pb(ctx, raid_type, scale, [player])
 
-    # Checks if the file exists on the server and sets the screenshot to None
-    # if not.
-    sync_screenshot_state(personal_best.get_pb())
+    if (
+        personal_best.raid_type.identifier ==
+        'Chambers of Xeric: Challenge Mode'
+    ):
+        cm_raid_pb = CmRaidPb(ctx, scale, personal_best.players)
+        await cm_raid_pb.display()
+        return
 
     # Display the personal best in an embed.
     await personal_best.display()
+
+
+@interactions.slash_command(
+    name='pb_cm_rooms',
+    description='Display a player\'s personal best for every room in a CM raid',
+    options=[
+        interactions.SlashCommandOption(
+            name='scale',
+            description='Enter the scale of the raid',
+            type=interactions.OptionType.INTEGER,
+            choices=scale_choices,
+            required=True
+        ),
+        interactions.SlashCommandOption(
+            name='runner',
+            description='Enter the names of the runner(s) (comma separated)',
+            type=interactions.OptionType.USER,
+            required=True
+        )
+    ]
+)
+async def pb_cm_rooms(
+    ctx: interactions.SlashContext,
+    scale: int,
+    runner: interactions.Member
+):
+    cm_individual_room_pb = CmIndividualRoomPb(ctx, scale, runner)
+    await cm_individual_room_pb.display()
 
 
 @interactions.slash_command(
@@ -464,7 +500,7 @@ async def submit_cm_from_clipboard(
     }
 
     if not is_valid_cm_paste(room_times):
-        message = ('The room times submitted are not valid.')
+        message = ('The room times submitted are not formatted correctly.')
         embed = error_to_embed('Submission', message)
         await ctx.send(embed=embed)
         return
@@ -609,6 +645,10 @@ async def submit_cm_from_clipboard(
         )
         embed = confirmation_to_embed('Submission', message)
         await ctx.send(embed=embed)
+
+        # Display the run in an embed.
+        cm_raid_pb = CmRaidPb(ctx, cm_raid_scale.id, existing_runners)
+        await cm_raid_pb.display()
         return
 
     # Check if the run is a PB.
@@ -632,6 +672,10 @@ async def submit_cm_from_clipboard(
         )
         embed = confirmation_to_embed('Submission', message)
         await ctx.send(embed=embed)
+
+        # Display the run in an embed.
+        cm_raid_pb = CmRaidPb(ctx, cm_raid_scale.id, existing_runners)
+        await cm_raid_pb.display()
 
     else:
         message = ('The run submitted is not a personal best.')
