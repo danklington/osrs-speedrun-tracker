@@ -1,5 +1,6 @@
 from db import Session as session
 from decimal import Decimal, getcontext
+from models.cm_raid_pb_time import CmRaidPbTime
 from models.player import Player
 from models.raid_type import RaidType
 from models.scale import Scale
@@ -155,3 +156,19 @@ def sync_screenshot_state(speedrun_time: SpeedrunTime) -> None:
         print(f"Screenshot does not exist. Fixing in DB: {attachment_path}")
         speedrun_time.screenshot = None
         session.commit()
+
+
+def is_valid_cm_paste(parsed_paste: str) -> bool:
+    """ Ensures all keys from the parsed dictionary are present.
+        (e.g. {'tekton': '1:04.8', ...})
+    """
+
+    # Remove first 3 elements because they're just IDs.
+    expected_keys = CmRaidPbTime.__table__.columns.keys()[3:]
+
+    # Add the size key because it's not in the DB but should be in the paste.
+    expected_keys.append('size')
+
+    parsed_keys = list(parsed_paste.keys())
+
+    return set(expected_keys) == set(parsed_keys)

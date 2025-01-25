@@ -9,6 +9,22 @@ import interactions
 EMBED_COLOUR = 0xc1005d
 
 
+def confirmation_to_embed(title: str, message: str) -> interactions.Embed:
+    return interactions.Embed(
+        title=':white_check_mark:  ' + title,
+        description='### ' + message,
+        color=EMBED_COLOUR
+    )
+
+
+def error_to_embed(title: str, error_message: str) -> interactions.Embed:
+    return interactions.Embed(
+        title=':x:  ' + title,
+        description='### ' + error_message,
+        color=EMBED_COLOUR
+    )
+
+
 def leaderboard_to_embed(lb_obj: Leaderboards) -> interactions.Embed:
     leaderboard = lb_obj.get_leaderboard()
 

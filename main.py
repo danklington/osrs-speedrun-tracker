@@ -1,7 +1,7 @@
 from config import TOKEN
 from db import Session as session
-from embed import leaderboard_to_embed
-from embed import pb_to_embed
+from embed import confirmation_to_embed
+from embed import error_to_embed
 from models.cm_individual_room_pb_time import CmIndividualRoomPbTime
 from models.cm_raid_pb_time import CmRaidPbTime
 from models.leaderboards import Leaderboards
@@ -16,6 +16,7 @@ from util import format_discord_ids
 from util import get_discord_name_from_ids
 from util import get_raid_choices
 from util import get_scale_choices
+from util import is_valid_cm_paste
 from util import is_valid_gametime
 from util import sync_screenshot_state
 from util import ticks_to_time_string
@@ -105,7 +106,9 @@ async def submit_run(
 ):
     # Make sure image is a PNG or JPEG.
     if screenshot.content_type not in ['image/png', 'image/jpeg']:
-        await ctx.send('The image submitted is not a PNG or JPEG.')
+        message = ('The image submitted is not a PNG or JPEG.')
+        embed = error_to_embed('Submission', message)
+        await ctx.send(embed=embed)
         return
 
     # Validate the time submitted.
@@ -117,7 +120,9 @@ async def submit_run(
 
     # Check if the time submitted can be an actual time in-game.
     if not is_valid_gametime(total_time_in_seconds):
-        await ctx.send('The time submitted is not valid.')
+        message = ('The time submitted is not valid.')
+        embed = error_to_embed('Submission', message)
+        await ctx.send(embed=embed)
         return
 
     time_in_ticks = int(round(total_time_in_seconds / 0.6, 1))
@@ -128,9 +133,11 @@ async def submit_run(
     # Make sure the runner string is formatted correctly.
     for runner in runners:
         if runner[0:2] != '<@' or runner[-1] != '>' or runner.count('@') != 1:
-            await ctx.send(
+            message = (
                 'One or more of the runners has not been entered correctly.'
             )
+            embed = error_to_embed('Submission', message)
+            await ctx.send(embed=embed)
             return
 
     # Remove the '<@' and '>' from the runner string.
@@ -139,10 +146,12 @@ async def submit_run(
     # Make sure the number of submitted runners matches the number of players
     # for the scale.
     if len(formatted_runners_list) != scale:
-        await ctx.send(
+        message = (
             'The number of runners submitted does not match the scale of '
             f'the raid. Expected {scale}, got {len(formatted_runners_list)}.'
         )
+        embed = error_to_embed('Submission', message)
+        await ctx.send(embed=embed)
         return
 
     # Associate the runner IDs with their names.
@@ -150,7 +159,9 @@ async def submit_run(
         ctx, formatted_runners_list
     )
     if discord_id_and_names is None:
-        await ctx.send('One of the users submitted is not on this server.')
+        message = ('One of the users submitted is not on this server.')
+        embed = error_to_embed('Submission', message)
+        await ctx.send(embed=embed)
         return
 
     print(f'Runners submitted: {discord_id_and_names}')
@@ -178,7 +189,9 @@ async def submit_run(
         SpeedrunTime.players == runner_db_id_string
     ).first()
     if run_exists:
-        await ctx.send('An identical raid time has already been submitted.')
+        message = ('An identical run has already been submitted.')
+        embed = error_to_embed('Submission', message)
+        await ctx.send(embed=embed)
         return
 
     # Save the screenshot.
@@ -211,13 +224,13 @@ async def submit_run(
     # Format the time for the response.
     formatted_time = ticks_to_time_string(time_in_ticks)
 
-    # TODO: Create an embed for the response.
-
-    await ctx.send(
-        f'Submitted {formatted_time} in {raid.identifier} with '
+    message = (
+        f'Submitted `{formatted_time}` in {raid.identifier} with '
         f'{scale.identifier} scale.'
     )
-    return
+    embed = confirmation_to_embed('Submission', message)
+
+    await ctx.send(embed=embed)
 
 
 @interactions.slash_command(
@@ -288,22 +301,54 @@ async def delete_run(
 
     time_in_ticks = int(round(total_time_in_seconds / 0.6, 1))
 
+    # Sanitise the players input.
+    runners = runners.replace(' ', '').split(',')
+    formatted_runners_list = format_discord_ids(runners)
+
+    # Find the players in the database.
+    existing_runners = session.query(Player).filter(
+        Player.discord_id.in_(formatted_runners_list)
+    ).all()
+
+    # Format the runners for the database query, and for adding it later if we
+    # do not find an identical run.
+    runner_db_id_string = ','.join(
+        [str(runner.id) for runner in existing_runners]
+    )
+
     run_found = session.query(SpeedrunTime).filter(
         RaidType.identifier == raid_type,
         SpeedrunTime.raid_type_id == RaidType.id,
         Scale.value == scale,
         SpeedrunTime.scale_id == Scale.id,
-        SpeedrunTime.time == time_in_ticks
+        SpeedrunTime.time == time_in_ticks,
+        SpeedrunTime.players == runner_db_id_string
+    ).first()
+
+    # Get the scale object to display the identifier in the message.
+    scale = session.query(Scale).filter(
+        Scale.value == scale
     ).first()
 
     if run_found:
         session.delete(run_found)
         session.commit()
-        await ctx.send('Run deleted.')
-        return
+
+
+        message = (
+            f'{raid_type} {scale.identifier} ({', '.join(runners)}) '
+            'deleted.'
+        )
+        embed = confirmation_to_embed('Deletion', message)
+        await ctx.send(embed=embed)
+
     else:
-        await ctx.send('Run not found.')
-        return
+        message = (
+            f'{raid_type} {scale.identifier} ({', '.join(runners)}) not '
+            'found.'
+        )
+        embed = error_to_embed('Deletion', message)
+        await ctx.send(embed=embed)
 
 
 @interactions.slash_command(
@@ -413,10 +458,16 @@ async def submit_cm_from_clipboard(
     # Strip unneeded characters.
     room_times = [x.replace(' ', '').replace('|', '') for x in room_times]
 
-    # Split each element into a key value pair, e.g. {'Tekton': '1:04.8', ...}
+    # Split each element into a key value pair, e.g. {'tekton': '1:04.8', ...}
     room_times = {
         x.split(':', 1)[0]: x.split(':', 1)[1] for x in room_times
     }
+
+    if not is_valid_cm_paste(room_times):
+        message = ('The room times submitted are not valid.')
+        embed = error_to_embed('Submission', message)
+        await ctx.send(embed=embed)
+        return
 
     # Grab the scale from the string and then pop it so we do not run our time
     # function on it.
@@ -551,14 +602,20 @@ async def submit_cm_from_clipboard(
         )
         session.add(new_run)
         session.commit()
-        await ctx.send('Run submitted.')
+
+        message = (
+            f'Submitted `{ticks_to_time_string(total_raid_time)}` in CoX: CM '
+            f'with {cm_raid_scale.identifier} scale.'
+        )
+        embed = confirmation_to_embed('Submission', message)
+        await ctx.send(embed=embed)
         return
 
     # Check if the run is a PB.
     better_run_exists = session.query(CmRaidPbTime).filter(
         CmRaidPbTime.scale_id == cm_raid_scale.id,
         CmRaidPbTime.speedrun_time_id == speedrun_time.id,
-        CmRaidPbTime.completed < total_raid_time
+        CmRaidPbTime.completed <= total_raid_time
     ).first()
     if not better_run_exists:
         new_run = CmRaidPbTime(
@@ -569,10 +626,17 @@ async def submit_cm_from_clipboard(
         )
         session.add(new_run)
         session.flush()
-        await ctx.send('Run submitted.')
+        message = (
+            f'Submitted `{ticks_to_time_string(total_raid_time)}` in CoX: CM '
+            f'with {cm_raid_scale.identifier} scale.'
+        )
+        embed = confirmation_to_embed('Submission', message)
+        await ctx.send(embed=embed)
 
     else:
-        await ctx.send('Run is not a PB.')
+        message = ('The run submitted is not a personal best.')
+        embed = error_to_embed('Submission', message)
+        await ctx.send(embed=embed)
 
     session.commit()
     return
