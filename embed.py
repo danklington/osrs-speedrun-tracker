@@ -1,4 +1,4 @@
-from db import Session
+from db import Session as session
 from models.pb import Pb
 from models.player import Player
 from models.speedrun_time import SpeedrunTime
@@ -10,8 +10,6 @@ EMBED_COLOUR = 0xc1005d
 
 
 def leaderboard_to_embed(leaderboard: SpeedrunTime) -> interactions.Embed:
-    session = Session()
-
     output = ''
     emoji_list = [
         ':first_place:', ':second_place:', ':third_place:', ':four:', ':five:',
@@ -37,8 +35,9 @@ def leaderboard_to_embed(leaderboard: SpeedrunTime) -> interactions.Embed:
     )
 
 
-def pb_to_embed(pb_obj: Pb, pb_time: SpeedrunTime) -> interactions.Embed:
-    runner_names = pb_obj.get_player_names_in_pb(pb_time)
+def pb_to_embed(pb_obj: Pb) -> interactions.Embed:
+    runner_names = pb_obj.get_player_names_in_pb()
+    pb_time = pb_obj.get_pb()
     formatted_time = ticks_to_time_string(pb_time.time)
 
     output = (

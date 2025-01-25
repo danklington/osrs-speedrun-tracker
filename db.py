@@ -1,6 +1,6 @@
 from config import DB_CREDENTIALS
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker
 
 # Create a connection to the database
 DB_USERNAME = DB_CREDENTIALS['DB_USERNAME']
@@ -15,4 +15,4 @@ connection_string = (
 )
 engine = create_engine(connection_string, connect_args={'ssl': False})
 
-Session = sessionmaker(bind=engine)
+Session = scoped_session(sessionmaker(bind=engine))

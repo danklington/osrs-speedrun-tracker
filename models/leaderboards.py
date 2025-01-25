@@ -1,4 +1,4 @@
-from db import Session
+from db import Session as session
 from models.raid_type import RaidType
 from models.scale import Scale
 from models.speedrun_time import SpeedrunTime
@@ -11,7 +11,6 @@ class Leaderboards():
 
     @property
     def scale(self) -> Scale:
-        session = Session()
         scale = session.query(Scale).filter(
             Scale.value == self._scale
         ).first()
@@ -19,15 +18,12 @@ class Leaderboards():
 
     @property
     def raid_type(self) -> RaidType:
-        session = Session()
         raid_type = session.query(RaidType).filter(
             RaidType.identifier == self._raid_type
         ).first()
         return raid_type
 
     def get_leaderboard(self, limit: int = 10) -> list[SpeedrunTime]:
-        session = Session()
-
         # Find the leaderboards.
         subquery = session.query(
             SpeedrunTime.players,

@@ -1,8 +1,9 @@
-from db import Session
+from db import Session as session
 from decimal import Decimal, getcontext
 from models.player import Player
 from models.raid_type import RaidType
 from models.scale import Scale
+from models.speedrun_time import SpeedrunTime
 import aiohttp
 import datetime
 import interactions
@@ -12,7 +13,6 @@ import os
 def get_raid_choices() -> list[interactions.SlashCommandChoice]:
     """ Returns the choices for all raid types. """
 
-    session = Session()
     raid_types = session.query(RaidType).all()
     raid_choices = [
         {'name': raid.identifier, 'value': raid.identifier}
@@ -25,7 +25,6 @@ def get_raid_choices() -> list[interactions.SlashCommandChoice]:
 def get_scale_choices() -> list[interactions.SlashCommandChoice]:
     """ Returns the choices for all scales. """
 
-    session = Session()
     scales = session.query(Scale).all()
     scale_choices = [
         {'name': scale.identifier, 'value': scale.value}
@@ -104,8 +103,6 @@ async def download_attachment(
 def add_runners_to_database(runners: dict) -> None:
     """ Adds the runners to the database. """
 
-    session = Session()
-
     # Compare the submitted players to the database of previous players.
     for discord_id in runners:
         # Check if the player is already in the database.
@@ -140,3 +137,21 @@ def get_discord_name_from_ids(
             return None
 
     return discord_id_and_names
+
+
+def sync_screenshot_state(speedrun_time: SpeedrunTime) -> None:
+    """ Sets the screenshot to NULL in the DB if the file does not exist. """
+
+    if not speedrun_time.screenshot:
+        return
+
+    screenshot = speedrun_time.screenshot
+    attachment_path = os.path.join('attachments', screenshot)
+
+    try:
+        with open(attachment_path, 'r') as _:
+            pass
+    except FileNotFoundError:
+        print(f"Screenshot does not exist. Fixing in DB: {attachment_path}")
+        speedrun_time.screenshot = None
+        session.commit()

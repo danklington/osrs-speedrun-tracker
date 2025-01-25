@@ -1,5 +1,5 @@
 from config import TOKEN
-from db import Session
+from db import Session as session
 from embed import leaderboard_to_embed
 from embed import pb_to_embed
 from models.cm_individual_room_pb_time import CmIndividualRoomPbTime
@@ -17,6 +17,7 @@ from util import get_discord_name_from_ids
 from util import get_raid_choices
 from util import get_scale_choices
 from util import is_valid_gametime
+from util import sync_screenshot_state
 from util import ticks_to_time_string
 from util import time_string_to_ticks
 import datetime
@@ -102,8 +103,6 @@ async def submit_run(
     runners: str,
     screenshot: interactions.Attachment
 ):
-    session = Session()
-
     # Make sure image is a PNG or JPEG.
     if screenshot.content_type not in ['image/png', 'image/jpeg']:
         await ctx.send('The image submitted is not a PNG or JPEG.')
@@ -280,8 +279,6 @@ async def delete_run(
     seconds: int,
     milliseconds: int
 ):
-    session = Session()
-
     # Validate the time submitted.
     total_time_in_seconds = datetime.timedelta(
         minutes=minutes,
@@ -390,7 +387,11 @@ async def pb(
         await ctx.send('No personal best found.')
         return
 
-    embed = pb_to_embed(personal_best, pb_time)
+    # Checks if the file exists on the server and sets the screenshot to None
+    # if not.
+    sync_screenshot_state(pb_time)
+
+    embed = pb_to_embed(personal_best)
 
     if pb_time.screenshot:
         screenshot = interactions.File(f'attachments/{pb_time.screenshot}')
@@ -426,8 +427,6 @@ async def submit_cm_from_clipboard(
     runners: str,
     room_times: str
 ):
-    session = Session()
-
     # Split the string into a list before every capital letter.
     capital_letters_at_start = r'[A-Z][^A-Z]*'
     room_times = re.findall(capital_letters_at_start, room_times)

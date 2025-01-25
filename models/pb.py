@@ -1,4 +1,4 @@
-from db import Session
+from db import Session as session
 from models.player import Player
 from models.raid_type import RaidType
 from models.scale import Scale
@@ -18,7 +18,6 @@ class Pb():
 
     @property
     def raid_type(self) -> RaidType:
-        session = Session()
         raid = session.query(RaidType).filter(
             RaidType.identifier == self._raid_type
         ).first()
@@ -26,7 +25,6 @@ class Pb():
 
     @property
     def scale(self) -> Scale:
-        session = Session()
         scale = session.query(Scale).filter(
             Scale.value == self._scale
         ).first()
@@ -34,15 +32,12 @@ class Pb():
 
     @property
     def player(self) -> Player:
-        session = Session()
         player = session.query(Player).filter(
             Player.discord_id == str(self._runner.id)
         ).first()
         return player
 
     def get_pb(self) -> SpeedrunTime:
-        session = Session()
-
         # Find the player's personal best
         pb_time = session.query(SpeedrunTime).filter(
             SpeedrunTime.raid_type_id == self.raid_type.id,
@@ -52,9 +47,8 @@ class Pb():
 
         return pb_time
 
-    def get_player_names_in_pb(self, pb_time: SpeedrunTime) -> list[str]:
-        session = Session()
-
+    def get_player_names_in_pb(self) -> list[str]:
+        pb_time = self.get_pb()
         all_runners = pb_time.players.split(',')
 
         # Find the names of the runners.
