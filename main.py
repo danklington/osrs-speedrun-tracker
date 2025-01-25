@@ -317,7 +317,7 @@ async def delete_run(
         [str(runner.id) for runner in existing_runners]
     )
 
-    run_found = session.query(SpeedrunTime).filter(
+    speedruntime_found = session.query(SpeedrunTime).filter(
         RaidType.identifier == raid_type,
         SpeedrunTime.raid_type_id == RaidType.id,
         Scale.value == scale,
@@ -331,10 +331,17 @@ async def delete_run(
         Scale.value == scale
     ).first()
 
-    if run_found:
-        session.delete(run_found)
-        session.commit()
+    if speedruntime_found:
+        # Look for a CM time to delete.
+        if raid_type == 'Chambers of Xeric: Challenge Mode':
+            cm_raid_pb = session.query(CmRaidPbTime).filter(
+                CmRaidPbTime.speedrun_time_id == speedruntime_found.id
+            ).first()
+            if cm_raid_pb:
+                session.delete(cm_raid_pb)
 
+        session.delete(speedruntime_found)
+        session.commit()
 
         message = (
             f'{raid_type} {scale.identifier} ({', '.join(runners)}) '
@@ -518,12 +525,14 @@ async def submit_cm_from_clipboard(
     total_raid_time = room_times.pop('completed')
 
     # Check if the scale exists in the database.
-    scale_exists = session.query(Scale).filter(
+    cm_raid_scale = session.query(Scale).filter(
         Scale.value == scale
     ).first()
-    if not scale_exists:
+    if not cm_raid_scale:
         await ctx.send('Invalid CM scale submitted.')
         return
+
+    print('scale:', cm_raid_scale.value)
 
     print(f'Room times submitted: {room_times}')
 
@@ -577,11 +586,6 @@ async def submit_cm_from_clipboard(
         RaidType.identifier == 'Chambers of Xeric: Challenge Mode'
     ).first()
 
-    # Get the scale.
-    cm_raid_scale = session.query(Scale).filter(
-        Scale.value == scale
-    ).first()
-
     # Add to speedrun_time table.
     # Check if this exact run has already been submitted.
     speedrun_time = session.query(SpeedrunTime).filter(
@@ -601,17 +605,22 @@ async def submit_cm_from_clipboard(
         session.add(speedrun_time)
         session.flush()
 
+    # Track the updated room times so we can display it in the embed.
+    updated_times = []
+    room_before_after = ()
+
     # Update individual room time PBs per player.
     for runner in existing_runners:
         # Get the player's best room times.
         best_times = session.query(CmIndividualRoomPbTime).filter(
-            CmIndividualRoomPbTime.player_id == runner.id
+            CmIndividualRoomPbTime.player_id == runner.id,
+            CmIndividualRoomPbTime.scale_id == cm_raid_scale.id
         ).first()
 
         if not best_times:
             new_run = CmIndividualRoomPbTime(
                 player_id=runner.id,
-                scale_id=scale,
+                scale_id=cm_raid_scale.id,
                 **room_times
             )
             session.add(new_run)
@@ -621,8 +630,27 @@ async def submit_cm_from_clipboard(
         # Update the player's best room times if they are faster.
         for room in room_times:
             if room_times[room] < getattr(best_times, room):
+                room_before_after = (
+                    runner, room, getattr(best_times, room), room_times[room]
+                )
                 setattr(best_times, room, room_times[room])
+                updated_times.append(room_before_after)
                 session.flush()
+
+    if updated_times:
+        message = (
+            'The room times submitted have been updated for the following '
+            'rooms:\n'
+        )
+
+        for runner, room, before, after in updated_times:
+            message += (
+                f'### {runner.name}: {room} - `{ticks_to_time_string(before)}` '
+                f'-> `{ticks_to_time_string(after)}`\n'
+            )
+
+        embed = confirmation_to_embed('New room PB(s)', message)
+        await ctx.send(embed=embed)
 
     # If a run doesn't exist, just add it.
     run_exists = session.query(CmRaidPbTime).filter(

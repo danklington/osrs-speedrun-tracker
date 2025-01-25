@@ -170,7 +170,7 @@ class CmRaidPb():
                 scale=self.scale.value,
                 runner=self.players
             )
-            if pb:
+            if pb.get_pb():
                 embed = pb_to_embed(pb)
                 await self.ctx.send(embed=embed)
                 return
