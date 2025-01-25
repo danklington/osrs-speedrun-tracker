@@ -8,20 +8,22 @@ import interactions
 class Pb():
     def __init__(
         self,
+        ctx: interactions.SlashContext,
         raid_type: str = None,
         scale: int = None,
         runner: interactions.Member = None
     ):
+        self.ctx = ctx
         self._raid_type = raid_type
         self._scale = scale
         self._runner = runner
 
     @property
     def raid_type(self) -> RaidType:
-        raid = session.query(RaidType).filter(
+        raid_type = session.query(RaidType).filter(
             RaidType.identifier == self._raid_type
         ).first()
-        return raid
+        return raid_type
 
     @property
     def scale(self) -> Scale:
@@ -60,3 +62,31 @@ class Pb():
             runner_names.append(player_obj.name)
 
         return runner_names
+
+    async def display(self):
+        from embed import pb_to_embed
+
+        if not self.player:
+            await self.ctx.send(
+                'Placeholder until embed for no player is made.'
+            )
+            return
+
+        pb = self.get_pb()
+        if not pb:
+            await self.ctx.send(
+                'Placeholder until embed for no PB is made.'
+            )
+            return
+
+        embed = pb_to_embed(self)
+
+        if pb.screenshot:
+            screenshot = interactions.File(f'attachments/{pb.screenshot}')
+            await self.ctx.send(embed=embed, files=[screenshot])
+            return
+
+        # If there is no screenshot, send the embed without a file.
+        else:
+            await self.ctx.send(embed=embed)
+            return

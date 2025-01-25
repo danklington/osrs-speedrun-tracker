@@ -1,7 +1,7 @@
 from db import Session as session
+from models.leaderboards import Leaderboards
 from models.pb import Pb
 from models.player import Player
-from models.speedrun_time import SpeedrunTime
 from util import ticks_to_time_string
 import interactions
 
@@ -9,7 +9,9 @@ import interactions
 EMBED_COLOUR = 0xc1005d
 
 
-def leaderboard_to_embed(leaderboard: SpeedrunTime) -> interactions.Embed:
+def leaderboard_to_embed(lb_obj: Leaderboards) -> interactions.Embed:
+    leaderboard = lb_obj.get_leaderboard()
+
     output = ''
     emoji_list = [
         ':first_place:', ':second_place:', ':third_place:', ':four:', ':five:',

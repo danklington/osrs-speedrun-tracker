@@ -331,18 +331,10 @@ async def leaderboards(
     raid_type: str,
     scale: int
 ):
-    lb = Leaderboards(raid_type, scale)
+    lb = Leaderboards(ctx, raid_type, scale)
 
-    leaderboard = lb.get_leaderboard()
-    if not leaderboard:
-        await ctx.send('No leaderboards found.')
-        return
-
-    embed = leaderboard_to_embed(leaderboard)
-    embed.title = f'Leaderboard for {raid_type} ({lb.scale.identifier} scale)'
-
-    await ctx.send(embed=embed)
-    return
+    # Display the leaderboards in an embed.
+    await lb.display()
 
 
 @interactions.slash_command(
@@ -377,31 +369,14 @@ async def pb(
     scale: int,
     runner: interactions.Member
 ):
-    personal_best = Pb(raid_type, scale, runner)
-    if not personal_best.player:
-        await ctx.send('Player not found in database.')
-        return
-
-    pb_time = personal_best.get_pb()
-    if not pb_time:
-        await ctx.send('No personal best found.')
-        return
+    personal_best = Pb(ctx, raid_type, scale, runner)
 
     # Checks if the file exists on the server and sets the screenshot to None
     # if not.
-    sync_screenshot_state(pb_time)
+    sync_screenshot_state(personal_best.get_pb())
 
-    embed = pb_to_embed(personal_best)
-
-    if pb_time.screenshot:
-        screenshot = interactions.File(f'attachments/{pb_time.screenshot}')
-        await ctx.send(embed=embed, files=[screenshot])
-        return
-
-    # If there is no screenshot, send the embed without a file.
-    else:
-        await ctx.send(embed=embed)
-        return
+    # Display the personal best in an embed.
+    await personal_best.display()
 
 
 @interactions.slash_command(
