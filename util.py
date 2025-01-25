@@ -158,7 +158,7 @@ def sync_screenshot_state(speedrun_time: SpeedrunTime) -> None:
         session.commit()
 
 
-def is_valid_cm_paste(parsed_paste: str) -> bool:
+def is_valid_cm_paste(parsed_paste: dict) -> bool:
     """ Ensures all keys from the parsed dictionary are present.
         (e.g. {'tekton': '1:04.8', ...})
     """
