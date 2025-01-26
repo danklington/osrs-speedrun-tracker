@@ -18,6 +18,7 @@ from util import get_raid_choices
 from util import get_scale_choices
 from util import is_valid_cm_paste
 from util import is_valid_gametime
+from util import is_valid_runner_list
 from util import ticks_to_time_string
 from util import time_string_to_ticks
 import datetime
@@ -130,14 +131,13 @@ async def submit_run(
     runners = runners.replace(' ', '').split(',')
 
     # Make sure the runner string is formatted correctly.
-    for runner in runners:
-        if runner[0:2] != '<@' or runner[-1] != '>' or runner.count('@') != 1:
-            message = (
-                'One or more of the runners has not been entered correctly.'
-            )
-            embed = error_to_embed('Submission', message)
-            await ctx.send(embed=embed)
-            return
+    if not is_valid_runner_list(runners):
+        message = (
+            'One or more of the runners has not been entered correctly.'
+        )
+        embed = error_to_embed('Submission', message)
+        await ctx.send(embed=embed)
+        return
 
     # Remove the '<@' and '>' from the runner string.
     formatted_runners_list = format_discord_ids(runners)
@@ -304,6 +304,16 @@ async def delete_run(
 
     # Sanitise the players input.
     runners = runners.replace(' ', '').split(',')
+
+    # Make sure the runner string is formatted correctly.
+    if not is_valid_runner_list(runners):
+        message = (
+            'One or more of the runners has not been entered correctly.'
+        )
+        embed = error_to_embed('Deletion', message)
+        await ctx.send(embed=embed)
+        return
+
     formatted_runners_list = format_discord_ids(runners)
 
     # Find the players in the database.
@@ -542,12 +552,13 @@ async def submit_cm_from_clipboard(
     runners = runners.replace(' ', '').split(',')
 
     # Make sure the runner string is formatted correctly.
-    for runner in runners:
-        if runner[0:2] != '<@' or runner[-1] != '>' or runner.count('@') != 1:
-            await ctx.send(
-                'One or more of the runners has not been entered correctly.'
-            )
-            return
+    if not is_valid_runner_list(runners):
+        embed = error_to_embed(
+            'Submission',
+            'One or more of the runners has not been entered correctly.'
+        )
+        await ctx.send(embed=embed)
+        return
 
     # Remove the '<@' and '>' from the runner string.
     formatted_runners_list = format_discord_ids(runners)

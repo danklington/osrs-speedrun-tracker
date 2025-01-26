@@ -57,6 +57,16 @@ def is_valid_gametime(number: float) -> bool:
     return abs(number % divisor) < tolerance
 
 
+def is_valid_runner_list(runner_list: list[str]) -> bool:
+    """ Determines if the runner list is valid. """
+
+    for runner in runner_list:
+        if runner[0:2] != '<@' or runner[-1] != '>' or runner.count('@') != 1:
+            return False
+
+    return True
+
+
 def ticks_to_time_string(ticks: int) -> str:
     """ Converts ticks to a formatted string. """
 
