@@ -37,7 +37,7 @@ bot = interactions.Client(token=TOKEN, intents=intents)
 # Get all raid and scale choices for the slash commands.
 raid_choices = get_raid_choices()
 scale_choices = get_scale_choices()
-get_cm_rooms = get_cm_rooms()
+cm_rooms = get_cm_rooms()
 
 
 @interactions.slash_command(
@@ -767,7 +767,7 @@ async def submit_cm_from_clipboard(
             name='room',
             description='Enter the room you want to delete the PB for',
             type=interactions.OptionType.STRING,
-            choices=get_cm_rooms,
+            choices=cm_rooms,
             required=True
         )
     ]
