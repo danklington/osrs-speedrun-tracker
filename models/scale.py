@@ -1,11 +1,9 @@
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String
+from db import Base
+from db import engine
+from sqlalchemy import Table
 
-Base = declarative_base()
 
 class Scale(Base):
-    __tablename__ = 'scale'
-
-    id = Column(Integer, primary_key=True)
-    identifier = Column(String(32), nullable=False)
-    value = Column(Integer, nullable=False)
+    __table__ = Table(
+        'scale', Base.metadata, autoload_with=engine
+    )

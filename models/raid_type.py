@@ -1,10 +1,9 @@
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String
+from db import Base
+from db import engine
+from sqlalchemy import Table
 
-Base = declarative_base()
 
 class RaidType(Base):
-    __tablename__ = 'raid_type'
-
-    id = Column(Integer, primary_key=True)
-    identifier = Column(String(50), nullable=False)
+    __table__ = Table(
+        'raid_type', Base.metadata, autoload_with=engine
+    )
