@@ -116,6 +116,13 @@ class CmRaidPb():
         self._runners = runners
 
     @property
+    def raid_type(self) -> RaidType:
+        raid_type = session.query(RaidType).filter(
+            RaidType.identifier == 'Chambers of Xeric: Challenge Mode'
+        ).first()
+        return raid_type
+
+    @property
     def scale(self) -> Scale:
         scale = session.query(Scale).filter(
             Scale.value == self._scale
@@ -147,6 +154,7 @@ class CmRaidPb():
     def get_pb(self) -> SpeedrunTime:
         # Find the players' personal best
         pb_time = session.query(SpeedrunTime).filter(
+            SpeedrunTime.raid_type_id == self.raid_type.id,
             SpeedrunTime.scale_id == self.scale.id,
             SpeedrunTime.players.contains(
                 ','.join([str(player.id) for player in self.players])
@@ -215,6 +223,13 @@ class CmIndividualRoomPb():
         self._player = player
 
     @property
+    def raid_type(self) -> RaidType:
+        raid_type = session.query(RaidType).filter(
+            RaidType.identifier == 'Chambers of Xeric: Challenge Mode'
+        ).first()
+        return raid_type
+
+    @property
     def scale(self) -> Scale:
         scale = session.query(Scale).filter(
             Scale.value == self._scale
@@ -249,6 +264,7 @@ class CmIndividualRoomPb():
     def get_pbs(self) -> SpeedrunTime:
         # Find the player's personal best for each room.
         pb_times = session.query(SpeedrunTime).filter(
+            SpeedrunTime.raid_type_id == self.raid_type.id,
             SpeedrunTime.scale_id == self.scale.id,
             SpeedrunTime.players.contains(str(self.player.id))
         ).order_by(SpeedrunTime.time).first()
@@ -269,9 +285,13 @@ class CmIndividualRoomPb():
 
         room_times = self.get_individual_room_times()
         if not room_times:
+            message = (
+                'Could not find any individual room times for '
+                f'{self.player.name} in {self.scale.identifier} scale.'
+            )
             embed = error_to_embed(
                 'No individual room times found',
-                'Could not find any individual room times for this player.'
+                message
             )
             await self.ctx.send(embed=embed)
             return
