@@ -13,6 +13,7 @@ from models.speedrun_time import SpeedrunTime
 from util import add_runners_to_database
 from util import download_attachment
 from util import format_discord_ids
+from util import get_cm_rooms
 from util import get_discord_name_from_ids
 from util import get_raid_choices
 from util import get_scale_choices
@@ -36,6 +37,7 @@ bot = interactions.Client(token=TOKEN, intents=intents)
 # Get all raid and scale choices for the slash commands.
 raid_choices = get_raid_choices()
 scale_choices = get_scale_choices()
+get_cm_rooms = get_cm_rooms()
 
 
 @interactions.slash_command(
@@ -642,6 +644,12 @@ async def submit_cm_from_clipboard(
 
         # Update the player's best room times if they are faster.
         for room in room_times:
+            if not getattr(best_times, room):
+                setattr(best_times, room, room_times[room])
+                updated_times.append((runner, room, None, room_times[room]))
+                session.flush()
+                continue
+
             if room_times[room] < getattr(best_times, room):
                 room_before_after = (
                     runner, room, getattr(best_times, room), room_times[room]
@@ -657,6 +665,14 @@ async def submit_cm_from_clipboard(
         )
 
         for runner, room, before, after in updated_times:
+            # If there was no time before, we can't show a before and after.
+            if before is None:
+                message += (
+                    f'### {runner.name}: {room} - '
+                    f'`{ticks_to_time_string(after)}`\n'
+                )
+                continue
+
             message += (
                 f'### {runner.name}: {room} - `{ticks_to_time_string(before)}` '
                 f'-> `{ticks_to_time_string(after)}`\n'
@@ -729,5 +745,72 @@ async def submit_cm_from_clipboard(
     session.commit()
     return
 
+
+@interactions.slash_command(
+    name='delete_cm_room_pb',
+    description='Delete a player\'s personal best for a room in a CM raid',
+    options=[
+        interactions.SlashCommandOption(
+            name='scale',
+            description='Enter the scale of the raid',
+            type=interactions.OptionType.INTEGER,
+            choices=scale_choices,
+            required=True
+        ),
+        interactions.SlashCommandOption(
+            name='runner',
+            description='Enter the name of the runner',
+            type=interactions.OptionType.USER,
+            required=True
+        ),
+        interactions.SlashCommandOption(
+            name='room',
+            description='Enter the room you want to delete the PB for',
+            type=interactions.OptionType.STRING,
+            choices=get_cm_rooms,
+            required=True
+        )
+    ]
+)
+async def delete_cm_room_pb(
+    ctx: interactions.SlashContext,
+    scale: int,
+    runner: interactions.Member,
+    room: str
+):
+
+    # Find the scale.
+    scale = session.query(Scale).filter(
+        Scale.value == scale
+    ).first()
+
+    # Find the player.
+    player = session.query(Player).filter(
+        Player.discord_id == str(runner.id)
+    ).first()
+
+    # Find the player's personal best rooms.
+    room_pb = session.query(CmIndividualRoomPbTime).filter(
+        CmIndividualRoomPbTime.scale_id == scale.id,
+        CmIndividualRoomPbTime.player_id == player.id
+    ).first()
+
+    if not room_pb:
+        message = (
+            'The player does not have a personal best for this room.'
+        )
+        embed = error_to_embed('Deletion', message)
+        await ctx.send(embed=embed)
+        return
+
+    # Set the room time to None.
+    setattr(room_pb, room, None)
+    session.commit()
+
+    embed = confirmation_to_embed(
+        'Deletion',
+        f'PB for {room} deleted for {runner} ({scale.identifier} scale).'
+    )
+    await ctx.send(embed=embed)
 
 bot.start()

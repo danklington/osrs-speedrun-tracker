@@ -1,5 +1,6 @@
 from db import Session as session
 from decimal import Decimal, getcontext
+from models.cm_individual_room_pb_time import CmIndividualRoomPbTime
 from models.cm_raid_pb_time import CmRaidPbTime
 from models.player import Player
 from models.raid_type import RaidType
@@ -33,6 +34,20 @@ def get_scale_choices() -> list[interactions.SlashCommandChoice]:
     ]
 
     return sorted(scale_choices, key=lambda x: x['value'])
+
+
+def get_cm_rooms() -> list[str]:
+    """ Returns the names of the CM rooms. """
+
+    cm_rooms = CmIndividualRoomPbTime.__table__.columns.keys()[3:]
+
+    # Convert the list to a dictionary for the interaction.
+    cm_rooms = [
+        {'name': cm_room.capitalize(), 'value': cm_room}
+        for cm_room in cm_rooms
+    ]
+
+    return cm_rooms
 
 
 def format_discord_ids(discord_ids: list[str]) -> list[int]:
@@ -69,6 +84,9 @@ def is_valid_runner_list(runner_list: list[str]) -> bool:
 
 def ticks_to_time_string(ticks: int) -> str:
     """ Converts ticks to a formatted string. """
+
+    if ticks is None:
+        return 'N/A'
 
     seconds = ticks * 0.6
     time_obj = datetime.datetime.utcfromtimestamp(seconds)
