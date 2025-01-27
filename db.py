@@ -18,6 +18,7 @@ engine = create_engine(
     connection_string,
     pool_recycle=3600,
     pool_size=1,
+    pool_pre_ping=True,
     connect_args={'ssl': False}
 )
 
