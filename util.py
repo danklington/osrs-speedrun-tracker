@@ -36,7 +36,7 @@ def get_scale_choices() -> list[interactions.SlashCommandChoice]:
     return sorted(scale_choices, key=lambda x: x['value'])
 
 
-def get_cm_rooms() -> list[str]:
+def get_cm_rooms() -> list[interactions.SlashCommandChoice]:
     """ Returns the names of the CM rooms. """
 
     cm_rooms = CmIndividualRoomPbTime.__table__.columns.keys()[3:]
