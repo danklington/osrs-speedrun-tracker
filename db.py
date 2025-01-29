@@ -21,6 +21,7 @@ engine = create_engine(
     pool_recycle=3600,
     pool_size=1,
     pool_pre_ping=True,
+    pool_use_lifo=True,
     connect_args={'ssl': False}
 )
 
@@ -32,7 +33,7 @@ def checkout_listener(dbapi_connection, connection_record, connection_proxy):
             dbapi_connection.ping(False)
         except TypeError:
             dbapi_connection.ping()
-    except (dbapi_connection.OperationalError, InterfaceError)  as e:
+    except dbapi_connection.OperationalError  as e:
         # Raise DisconnectionError - pool will try connecting again up to three
         # times before raising.
         if e.args[0] in (2006, 2013, 2014, 2045, 2055):
