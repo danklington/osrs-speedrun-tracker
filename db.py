@@ -1,7 +1,7 @@
 from config import DB_CREDENTIALS
 from sqlalchemy import create_engine, event
 from sqlalchemy.pool import Pool
-from sqlalchemy.exc import DisconnectionError, InterfaceError
+from sqlalchemy.exc import DisconnectionError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
 
@@ -25,6 +25,7 @@ engine = create_engine(
     connect_args={'ssl': False}
 )
 
+
 @event.listens_for(Pool, "checkout")
 def checkout_listener(dbapi_connection, connection_record, connection_proxy):
     """ Ensure connection is alive when checking out of pool. """
@@ -33,7 +34,7 @@ def checkout_listener(dbapi_connection, connection_record, connection_proxy):
             dbapi_connection.ping(False)
         except TypeError:
             dbapi_connection.ping()
-    except dbapi_connection.OperationalError  as e:
+    except dbapi_connection.OperationalError as e:
         # Raise DisconnectionError - pool will try connecting again up to three
         # times before raising.
         if e.args[0] in (2006, 2013, 2014, 2045, 2055):

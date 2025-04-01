@@ -5,6 +5,7 @@ from models.speedrun_time import SpeedrunTime
 from sqlalchemy import func
 import interactions
 
+
 class Leaderboards():
     def __init__(
         self,

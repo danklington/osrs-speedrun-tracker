@@ -278,7 +278,7 @@ async def submit_run(
         ),
         interactions.SlashCommandOption(
             name='milliseconds',
-            description='Enter the milliseconds in the time you wish to delete',
+            description='Enter the milliseconds in the time you wish to delete',  # noqa
             type=interactions.OptionType.INTEGER,
             min_value=0,
             max_value=8,
@@ -455,7 +455,7 @@ async def pb(
 
 @interactions.slash_command(
     name='pb_cm_rooms',
-    description='Display a player\'s personal best for every room in a CM raid',
+    description='Display a player\'s personal best for every room in a CM raid',  # noqa
     options=[
         interactions.SlashCommandOption(
             name='scale',
@@ -674,7 +674,8 @@ async def submit_cm_from_clipboard(
                 continue
 
             message += (
-                f'### {runner.name}: {room} - `{ticks_to_time_string(before)}` '
+                f'### {runner.name}: {room} - '
+                f'`{ticks_to_time_string(before)}` '
                 f'-> `{ticks_to_time_string(after)}`\n'
             )
 

@@ -63,7 +63,7 @@ def is_valid_gametime(number: float) -> bool:
         The tolerance is set to 1e-9 to account for floating point errors.
     """
 
-    tolerance=Decimal('1e-9')
+    tolerance = Decimal('1e-9')
     getcontext().prec = 28
 
     number = Decimal(str(number))
