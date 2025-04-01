@@ -7,3 +7,4 @@
 - `/submit_cm_from_clipboard` - Use the cox analytics plugin to paste your times in.
 - `/pb_cm_rooms` - This will display individual room best times. This data is tracked separately from your raid PB, so you can keep track of room PBs as well.
 - `/delete_cm_room_pb` - This will delete a specific room personal best.
+- `/delete_all_cm_room_pb` - This will delete all individual PB room times for a given player.
