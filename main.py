@@ -810,8 +810,70 @@ async def delete_cm_room_pb(
 
     embed = confirmation_to_embed(
         'Deletion',
-        f'PB for {room} deleted for {runner} ({scale.identifier} scale).'
+        f'PB for {room} deleted for <@{runner.id}> ({scale.identifier} scale).'
     )
     await ctx.send(embed=embed)
+
+
+@interactions.slash_command(
+    name='delete_all_cm_room_pb',
+    description='Delete all room PBs for a player in a CM raid',
+    options=[
+        interactions.SlashCommandOption(
+            name='scale',
+            description='Enter the scale of the raid',
+            type=interactions.OptionType.INTEGER,
+            choices=scale_choices,
+            required=True
+        ),
+        interactions.SlashCommandOption(
+            name='runner',
+            description='Enter the name of the runner',
+            type=interactions.OptionType.USER,
+            required=True
+        )
+    ]
+)
+async def delete_all_cm_room_pb(
+    ctx: interactions.SlashContext,
+    scale: int,
+    runner: interactions.Member
+):
+
+    # Find the scale.
+    scale = session.query(Scale).filter(
+        Scale.value == scale
+    ).first()
+
+    # Find the player.
+    player = session.query(Player).filter(
+        Player.discord_id == str(runner.id)
+    ).first()
+
+    # Find the player's personal best rooms.
+    room_pbs = session.query(CmIndividualRoomPbTime).filter(
+        CmIndividualRoomPbTime.scale_id == scale.id,
+        CmIndividualRoomPbTime.player_id == player.id
+    ).first()
+
+    if not room_pbs:
+        message = (
+            'The player does not have any personal bests for this scale.'
+        )
+        embed = error_to_embed('Deletion', message)
+        await ctx.send(embed=embed)
+        return
+
+    # Delete the room times.
+    session.delete(room_pbs)
+    session.commit()
+
+    embed = confirmation_to_embed(
+        'Deletion',
+        f'All room times deleted for <@{runner.id}> '
+        '({scale.identifier} scale).'
+    )
+    await ctx.send(embed=embed)
+
 
 bot.start()
