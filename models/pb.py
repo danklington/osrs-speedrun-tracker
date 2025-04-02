@@ -1,4 +1,4 @@
-from db import Session as session
+from db import get_session
 from models.player import Player
 from models.raid_type import RaidType
 from models.scale import Scale
@@ -25,33 +25,36 @@ class Pb():
 
     @property
     def raid_type(self) -> RaidType:
-        raid_type = session.query(RaidType).filter(
-            RaidType.identifier == self._raid_type
-        ).first()
-        return raid_type
+        with get_session() as session:
+            raid_type = session.query(RaidType).filter(
+                RaidType.identifier == self._raid_type
+            ).first()
+            return raid_type
 
     @property
     def scale(self) -> Scale:
-        scale = session.query(Scale).filter(
-            Scale.value == self._scale
-        ).first()
-        return scale
+        with get_session() as session:
+            scale = session.query(Scale).filter(
+                Scale.value == self._scale
+            ).first()
+            return scale
 
     @property
     def players(self) -> list[Player]:
         return self._runner
 
     def get_pb(self) -> SpeedrunTime:
-        # Find the player's personal best
-        pb_time = session.query(SpeedrunTime).filter(
-            SpeedrunTime.raid_type_id == self.raid_type.id,
-            SpeedrunTime.scale_id == self.scale.id,
-            SpeedrunTime.players.contains(
-                ','.join([str(player.id) for player in self.players])
-            )
-        ).order_by(SpeedrunTime.time).first()
+        with get_session() as session:
+            # Find the player's personal best
+            pb_time = session.query(SpeedrunTime).filter(
+                SpeedrunTime.raid_type_id == self.raid_type.id,
+                SpeedrunTime.scale_id == self.scale.id,
+                SpeedrunTime.players.contains(
+                    ','.join([str(player.id) for player in self.players])
+                )
+            ).order_by(SpeedrunTime.time).first()
 
-        return pb_time
+            return pb_time
 
     def get_player_names_in_pb(self) -> list[str]:
         players = self.players
@@ -61,11 +64,15 @@ class Pb():
 
     def get_all_players_in_pb(self) -> list[Player]:
         pb = self.get_pb()
-        players = session.query(Player).filter(
-            Player.id.in_([int(player) for player in pb.players.split(',')])
-        ).all()
 
-        return players
+        with get_session() as session:
+            players = session.query(Player).filter(
+                Player.id.in_(
+                    [int(player) for player in pb.players.split(',')]
+                )
+            ).all()
+
+            return players
 
     async def display(self) -> None:
         from embed import error_to_embed
@@ -118,17 +125,19 @@ class CmRaidPb():
 
     @property
     def raid_type(self) -> RaidType:
-        raid_type = session.query(RaidType).filter(
-            RaidType.identifier == 'Chambers of Xeric: Challenge Mode'
-        ).first()
-        return raid_type
+        with get_session() as session:
+            raid_type = session.query(RaidType).filter(
+                RaidType.identifier == 'Chambers of Xeric: Challenge Mode'
+            ).first()
+            return raid_type
 
     @property
     def scale(self) -> Scale:
-        scale = session.query(Scale).filter(
-            Scale.value == self._scale
-        ).first()
-        return scale
+        with get_session() as session:
+            scale = session.query(Scale).filter(
+                Scale.value == self._scale
+            ).first()
+            return scale
 
     @property
     def players(self) -> list[Player]:
@@ -153,24 +162,26 @@ class CmRaidPb():
         return times
 
     def get_pb(self) -> SpeedrunTime:
-        # Find the players' personal best
-        pb_time = session.query(SpeedrunTime).filter(
-            SpeedrunTime.raid_type_id == self.raid_type.id,
-            SpeedrunTime.scale_id == self.scale.id,
-            SpeedrunTime.players.contains(
-                ','.join([str(player.id) for player in self.players])
-            )
-        ).order_by(SpeedrunTime.time).first()
+        with get_session() as session:
+            # Find the players' personal best
+            pb_time = session.query(SpeedrunTime).filter(
+                SpeedrunTime.raid_type_id == self.raid_type.id,
+                SpeedrunTime.scale_id == self.scale.id,
+                SpeedrunTime.players.contains(
+                    ','.join([str(player.id) for player in self.players])
+                )
+            ).order_by(SpeedrunTime.time).first()
 
-        return pb_time
+            return pb_time
 
     def get_raid_times(self) -> CmRaidPbTime:
         pb = self.get_pb()
-        raid_times = session.query(CmRaidPbTime).filter(
-            CmRaidPbTime.speedrun_time_id == pb.id
-        ).first()
+        with get_session() as session:
+            raid_times = session.query(CmRaidPbTime).filter(
+                CmRaidPbTime.speedrun_time_id == pb.id
+            ).first()
 
-        return raid_times
+            return raid_times
 
     async def display(self) -> None:
         from embed import error_to_embed
@@ -225,24 +236,27 @@ class CmIndividualRoomPb():
 
     @property
     def raid_type(self) -> RaidType:
-        raid_type = session.query(RaidType).filter(
-            RaidType.identifier == 'Chambers of Xeric: Challenge Mode'
-        ).first()
-        return raid_type
+        with get_session() as session:
+            raid_type = session.query(RaidType).filter(
+                RaidType.identifier == 'Chambers of Xeric: Challenge Mode'
+            ).first()
+            return raid_type
 
     @property
     def scale(self) -> Scale:
-        scale = session.query(Scale).filter(
-            Scale.value == self._scale
-        ).first()
-        return scale
+        with get_session() as session:
+            scale = session.query(Scale).filter(
+                Scale.value == self._scale
+            ).first()
+            return scale
 
     @property
     def player(self) -> Player:
-        player = session.query(Player).filter(
-            Player.discord_id == str(self._player.id)
-        ).first()
-        return player
+        with get_session() as session:
+            player = session.query(Player).filter(
+                Player.discord_id == str(self._player.id)
+            ).first()
+            return player
 
     @property
     def times_dict(self) -> dict:
@@ -263,22 +277,24 @@ class CmIndividualRoomPb():
         return times
 
     def get_pbs(self) -> SpeedrunTime:
-        # Find the player's personal best for each room.
-        pb_times = session.query(SpeedrunTime).filter(
-            SpeedrunTime.raid_type_id == self.raid_type.id,
-            SpeedrunTime.scale_id == self.scale.id,
-            SpeedrunTime.players.contains(str(self.player.id))
-        ).order_by(SpeedrunTime.time).first()
+        with get_session() as session:
+            # Find the player's personal best for each room.
+            pb_times = session.query(SpeedrunTime).filter(
+                SpeedrunTime.raid_type_id == self.raid_type.id,
+                SpeedrunTime.scale_id == self.scale.id,
+                SpeedrunTime.players.contains(str(self.player.id))
+            ).order_by(SpeedrunTime.time).first()
 
-        return pb_times
+            return pb_times
 
     def get_individual_room_times(self) -> CmIndividualRoomPbTime:
-        room_times = session.query(CmIndividualRoomPbTime).filter(
-            CmIndividualRoomPbTime.player_id == self.player.id,
-            CmIndividualRoomPbTime.scale_id == self.scale.id
-        ).first()
+        with get_session() as session:
+            room_times = session.query(CmIndividualRoomPbTime).filter(
+                CmIndividualRoomPbTime.player_id == self.player.id,
+                CmIndividualRoomPbTime.scale_id == self.scale.id
+            ).first()
 
-        return room_times
+            return room_times
 
     async def display(self) -> None:
         from embed import error_to_embed

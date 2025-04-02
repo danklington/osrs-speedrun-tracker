@@ -1,4 +1,4 @@
-from db import Session as session
+from db import get_session
 from models.leaderboards import Leaderboards
 from models.pb import Pb, CmRaidPb, CmIndividualRoomPb
 from models.player import Player
@@ -34,18 +34,19 @@ def leaderboard_to_embed(lb_obj: Leaderboards) -> interactions.Embed:
         ':six:', ':seven:', ':eight:', ':nine:', ':keycap_ten:'
     ]
 
-    for index, run in enumerate(leaderboard):
-        formatted_time = ticks_to_time_string(run.time)
-        players = run.players.split(',')
-        player_names = []
-        for player in players:
-            player_obj = session.query(Player).filter(
-                Player.id == player
-            ).first()
-            player_names.append(player_obj.name)
-        player_string = ', '.join(player_names)
-        output += emoji_list[index]
-        output += f' | `{formatted_time}` - **{player_string}**\n\n'
+    with get_session() as session:
+        for index, run in enumerate(leaderboard):
+            formatted_time = ticks_to_time_string(run.time)
+            players = run.players.split(',')
+            player_names = []
+            for player in players:
+                player_obj = session.query(Player).filter(
+                    Player.id == player
+                ).first()
+                player_names.append(player_obj.name)
+            player_string = ', '.join(player_names)
+            output += emoji_list[index]
+            output += f' | `{formatted_time}` - **{player_string}**\n\n'
 
     return interactions.Embed(
         title=(

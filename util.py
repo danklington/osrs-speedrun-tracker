@@ -1,4 +1,4 @@
-from db import Session as session
+from db import get_session
 from decimal import Decimal, getcontext
 from models.cm_individual_room_pb_time import CmIndividualRoomPbTime
 from models.cm_raid_pb_time import CmRaidPbTime
@@ -15,25 +15,27 @@ import os
 def get_raid_choices() -> list[interactions.SlashCommandChoice]:
     """ Returns the choices for all raid types. """
 
-    raid_types = session.query(RaidType).all()
-    raid_choices = [
-        {'name': raid.identifier, 'value': raid.identifier}
-        for raid in raid_types
-    ]
+    with get_session() as session:
+        raid_types = session.query(RaidType).all()
+        raid_choices = [
+            {'name': raid.identifier, 'value': raid.identifier}
+            for raid in raid_types
+        ]
 
-    return sorted(raid_choices, key=lambda x: x['name'])
+        return sorted(raid_choices, key=lambda x: x['name'])
 
 
 def get_scale_choices() -> list[interactions.SlashCommandChoice]:
     """ Returns the choices for all scales. """
 
-    scales = session.query(Scale).all()
-    scale_choices = [
-        {'name': scale.identifier, 'value': scale.value}
-        for scale in scales
-    ]
+    with get_session() as session:
+        scales = session.query(Scale).all()
+        scale_choices = [
+            {'name': scale.identifier, 'value': scale.value}
+            for scale in scales
+        ]
 
-    return sorted(scale_choices, key=lambda x: x['value'])
+        return sorted(scale_choices, key=lambda x: x['value'])
 
 
 def get_cm_rooms() -> list[interactions.SlashCommandChoice]:
@@ -132,24 +134,25 @@ async def download_attachment(
 def add_runners_to_database(runners: dict) -> None:
     """ Adds the runners to the database. """
 
-    # Compare the submitted players to the database of previous players.
-    for discord_id in runners:
-        # Check if the player is already in the database.
-        found_player = session.query(Player).filter(
-            Player.discord_id == discord_id
-        ).first()
-        if not found_player:
-            print(f'Player does not exist in the DB. Adding: {discord_id}')
-            new_player = Player(
-                discord_id=discord_id, name=runners[discord_id]
-            )
-            session.add(new_player)
-            session.flush()
-            continue
+    with get_session() as session:
+        # Compare the submitted players to the database of previous players.
+        for discord_id in runners:
+            # Check if the player is already in the database.
+            found_player = session.query(Player).filter(
+                Player.discord_id == discord_id
+            ).first()
+            if not found_player:
+                print(f'Player does not exist in the DB. Adding: {discord_id}')
+                new_player = Player(
+                    discord_id=discord_id, name=runners[discord_id]
+                )
+                session.add(new_player)
+                session.flush()
+                continue
 
-        print(f'Player exists in DB: {discord_id}')
+            print(f'Player exists in DB: {discord_id}')
 
-    session.commit()
+        session.commit()
 
 
 def get_discord_name_from_ids(
@@ -171,19 +174,22 @@ def get_discord_name_from_ids(
 def sync_screenshot_state(speedrun_time: SpeedrunTime) -> None:
     """ Sets the screenshot to NULL in the DB if the file does not exist. """
 
-    if not speedrun_time.screenshot:
-        return
+    with get_session() as session:
+        if not speedrun_time.screenshot:
+            return
 
-    screenshot = speedrun_time.screenshot
-    attachment_path = os.path.join('attachments', screenshot)
+        screenshot = speedrun_time.screenshot
+        attachment_path = os.path.join('attachments', screenshot)
 
-    try:
-        with open(attachment_path, 'r') as _:
-            pass
-    except FileNotFoundError:
-        print(f"Screenshot does not exist. Fixing in DB: {attachment_path}")
-        speedrun_time.screenshot = None
-        session.commit()
+        try:
+            with open(attachment_path, 'r') as _:
+                pass
+        except FileNotFoundError:
+            print(
+                f'Screenshot does not exist. Fixing in DB: {attachment_path}'
+            )
+            speedrun_time.screenshot = None
+            session.commit()
 
 
 def is_valid_cm_paste(parsed_paste: dict) -> bool:

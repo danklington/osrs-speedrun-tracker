@@ -1,4 +1,5 @@
 from config import DB_CREDENTIALS
+from contextlib import contextmanager
 from sqlalchemy import create_engine, event
 from sqlalchemy.pool import Pool
 from sqlalchemy.exc import DisconnectionError
@@ -45,4 +46,12 @@ def checkout_listener(dbapi_connection, connection_record, connection_proxy):
 
 Base = declarative_base()
 Base.metadata.bind = engine
-Session = scoped_session(sessionmaker(bind=engine))
+
+
+@contextmanager
+def get_session():
+    session = scoped_session(sessionmaker(bind=engine))
+    try:
+        yield session
+    finally:
+        session.close()
