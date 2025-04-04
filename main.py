@@ -2,10 +2,13 @@ from config import TOKEN
 from db import get_session
 from embed import confirmation_to_embed
 from embed import error_to_embed
+from embed import leaderboard_to_embed
+from embed import pb_cm_individual_room_to_embed
+from embed import pb_cm_raid_to_embed
+from embed import pb_to_embed
 from models.cm_individual_room_pb_time import CmIndividualRoomPbTime
 from models.cm_raid_pb_time import CmRaidPbTime
 from models.leaderboards import Leaderboards
-from models.pb import Pb, CmRaidPb, CmIndividualRoomPb
 from models.player import Player
 from models.raid_type import RaidType
 from models.scale import Scale
@@ -20,6 +23,7 @@ from util import get_scale_choices
 from util import is_valid_cm_paste
 from util import is_valid_gametime
 from util import is_valid_runner_list
+from util import sync_screenshot_state
 from util import ticks_to_time_string
 from util import time_string_to_ticks
 import datetime
@@ -233,8 +237,11 @@ async def submit_run(
         await ctx.send(embed=embed)
 
         # Display the new time.
-        pb = Pb(ctx, raid_type, scale.value, existing_runners)
-        await pb.display()
+        embed = pb_to_embed(new_time)
+        screenshot = interactions.File(
+            f'attachments/{new_time.screenshot}'
+        )
+        await ctx.send(embed=embed, file=screenshot)
 
 
 @interactions.slash_command(
@@ -400,8 +407,18 @@ async def leaderboards(
 ):
     lb = Leaderboards(ctx, raid_type, scale)
 
-    # Display the leaderboards in an embed.
-    await lb.display()
+    # Check if the leaderboard exists.
+    if not lb.get_leaderboard():
+        embed = error_to_embed(
+            'No leaderboard found',
+            'There are no runs in this leaderboard yet.'
+        )
+        await ctx.send(embed=embed)
+        return
+
+    # Display the leaderboard in an embed.
+    embed = leaderboard_to_embed(lb)
+    await ctx.send(embed=embed)
 
 
 @interactions.slash_command(
@@ -437,23 +454,64 @@ async def pb(
     runner: interactions.Member
 ):
     with get_session() as session:
+        # Find the player.
         player = session.query(Player).filter(
             Player.discord_id == str(runner.id)
         ).first()
-        personal_best = Pb(ctx, raid_type, scale, [player])
 
-        if (
-            personal_best.raid_type.identifier ==
-            'Chambers of Xeric: Challenge Mode'
-        ):
-            # Get all players in the raid.
-            all_players = personal_best.get_all_players_in_pb()
-            cm_raid_pb = CmRaidPb(ctx, scale, all_players)
-            await cm_raid_pb.display()
+        # Find the scale.
+        scale = session.query(Scale).filter(
+            Scale.value == scale
+        ).first()
+
+        # Find the raid_type.
+        raid_type = session.query(RaidType).filter(
+            RaidType.identifier == raid_type
+        ).first()
+
+        # Find the personal best.
+        speedrun_time = session.query(SpeedrunTime).filter(
+            SpeedrunTime.raid_type_id == raid_type.id,
+            SpeedrunTime.scale_id == scale.id,
+            SpeedrunTime.players.contains(
+                ','.join([str(player.id)])
+            )
+        ).order_by(SpeedrunTime.time).first()
+
+        if not speedrun_time:
+            message = (
+                f'{runner.display_name} does not have a personal best for '
+                f'{raid_type.identifier} with {scale.identifier}.'
+            )
+            embed = error_to_embed('No PB found', message)
+            await ctx.send(embed=embed)
             return
 
-        # Display the personal best in an embed.
-        await personal_best.display()
+        # Check if the run is a CM raid.
+        if raid_type.identifier == 'Chambers of Xeric: Challenge Mode':
+            cm_raid_pb = session.query(CmRaidPbTime).filter(
+                CmRaidPbTime.speedrun_time_id == speedrun_time.id
+            ).first()
+            if cm_raid_pb:
+                # Display the run in an embed.
+                embed = pb_cm_raid_to_embed(cm_raid_pb)
+                await ctx.send(embed=embed)
+                return
+
+        # Sync the state of the screenshot in the database.
+        sync_screenshot_state(speedrun_time)
+
+        # Embed the run.
+        embed = pb_to_embed(speedrun_time)
+
+        if speedrun_time.screenshot:
+            screenshot = interactions.File(
+                f'attachments/{speedrun_time.screenshot}'
+            )
+            await ctx.send(embed=embed, file=screenshot)
+            return
+
+        await ctx.send(embed=embed)
 
 
 @interactions.slash_command(
@@ -480,8 +538,34 @@ async def pb_cm_rooms(
     scale: int,
     runner: interactions.Member
 ):
-    cm_individual_room_pb = CmIndividualRoomPb(ctx, scale, runner)
-    await cm_individual_room_pb.display()
+    with get_session() as session:
+        # Find the player.
+        player = session.query(Player).filter(
+            Player.discord_id == str(runner.id)
+        ).first()
+
+        # Find the scale.
+        scale = session.query(Scale).filter(
+            Scale.value == scale
+        ).first()
+
+        # Find the room pbs.
+        room_pbs = session.query(CmIndividualRoomPbTime).filter(
+            CmIndividualRoomPbTime.player_id == player.id,
+            CmIndividualRoomPbTime.scale_id == scale.id,
+        ).first()
+
+        if not room_pbs:
+            message = (
+                f'{runner.display_name} does not have any room personal '
+                'bests.'
+            )
+            embed = error_to_embed('No room PBs found', message)
+            await ctx.send(embed=embed)
+            return
+
+        embed = pb_cm_individual_room_to_embed(room_pbs)
+        await ctx.send(embed=embed)
 
 
 @interactions.slash_command(
@@ -716,8 +800,9 @@ async def submit_cm_from_clipboard(
             await ctx.send(embed=embed)
 
             # Display the run in an embed.
-            cm_raid_pb = CmRaidPb(ctx, cm_raid_scale.id, existing_runners)
-            await cm_raid_pb.display()
+            embed = pb_cm_raid_to_embed(new_run)
+            await ctx.send(embed=embed)
+
             return
 
         # Check if the run is a PB.
@@ -743,8 +828,8 @@ async def submit_cm_from_clipboard(
             await ctx.send(embed=embed)
 
             # Display the run in an embed.
-            cm_raid_pb = CmRaidPb(ctx, cm_raid_scale.id, existing_runners)
-            await cm_raid_pb.display()
+            embed = pb_cm_raid_to_embed(new_run)
+            await ctx.send(embed=embed)
 
         else:
             message = (

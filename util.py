@@ -189,6 +189,7 @@ def sync_screenshot_state(speedrun_time: SpeedrunTime) -> None:
                 f'Screenshot does not exist. Fixing in DB: {attachment_path}'
             )
             speedrun_time.screenshot = None
+            session.merge(speedrun_time)
             session.commit()
 
 

@@ -1,7 +1,9 @@
 from db import get_session
+from models.cm_individual_room_pb_time import CmIndividualRoomPbTime
+from models.cm_raid_pb_time import CmRaidPbTime
 from models.leaderboards import Leaderboards
-from models.pb import Pb, CmRaidPb, CmIndividualRoomPb
 from models.player import Player
+from models.speedrun_time import SpeedrunTime
 from util import ticks_to_time_string
 import interactions
 
@@ -58,14 +60,13 @@ def leaderboard_to_embed(lb_obj: Leaderboards) -> interactions.Embed:
     )
 
 
-def pb_to_embed(pb_obj: Pb) -> interactions.Embed:
-    runner_names = pb_obj.get_player_names_in_pb()
-    pb_time = pb_obj.get_pb()
-    formatted_time = ticks_to_time_string(pb_time.time)
+def pb_to_embed(speedrun_time: SpeedrunTime) -> interactions.Embed:
+    runner_names = speedrun_time.get_player_names()
+    formatted_time = ticks_to_time_string(speedrun_time.time)
 
     output = (
         '### :man_running_facing_right: '
-        f'Runner{'s' if pb_obj.scale.value > 1 else ''}:\n'
+        f'Runner{'s' if speedrun_time.get_scale().value > 1 else ''}:\n'
         f'**{', '.join(runner_names)}**\n\n'
         f'### :clock1: Time:\n'
         f'### `{formatted_time}`'
@@ -74,23 +75,25 @@ def pb_to_embed(pb_obj: Pb) -> interactions.Embed:
     embed = interactions.Embed(
         title=(
             f'Team {', '.join(runner_names)}: Personal best for '
-            f'{pb_obj.raid_type.identifier} '
-            f'({pb_obj.scale.identifier} scale)'
+            f'{speedrun_time.get_raid_type().identifier} '
+            f'({speedrun_time.get_scale().identifier} scale)'
         ),
         description=output,
         color=EMBED_COLOUR
     )
-    if pb_time.screenshot:
-        embed.set_image(url=f'attachment://{pb_time.screenshot}')
+    if speedrun_time.screenshot:
+        embed.set_image(url=f'attachment://{speedrun_time.screenshot}')
 
     return embed
 
 
-def pb_cm_raid_to_embed(pb_obj: CmRaidPb) -> interactions.Embed:
-    players = [player.name for player in pb_obj.players]
-    times = pb_obj.times_dict
+def pb_cm_raid_to_embed(cm_raid_pb: CmRaidPbTime) -> interactions.Embed:
+    players = [player.name for player in cm_raid_pb.get_players()]
+    times = cm_raid_pb.get_room_times()
 
     # HACK: The spaces are the only way to make the formatting consistent.
+    # Could calculate the max length of the string and pad it with spaces.
+    # Max length of a line is 33.
     output = (
         f'### <:tektiny:1332765052792471707> `Tekton:                   {times['tekton']}`\n'
         f'### <:jewelled_crab:1332766850492399718> `Crabs:                    {times['crabs']}`\n'
@@ -119,7 +122,7 @@ def pb_cm_raid_to_embed(pb_obj: CmRaidPb) -> interactions.Embed:
     embed = interactions.Embed(
         title=(
             f'CM Raid personal best for {', '.join(players)} '
-            f'({pb_obj.scale.identifier} scale)'
+            f'({cm_raid_pb.get_scale().identifier} scale)'
         ),
         description=output,
         color=EMBED_COLOUR
@@ -129,10 +132,10 @@ def pb_cm_raid_to_embed(pb_obj: CmRaidPb) -> interactions.Embed:
 
 
 def pb_cm_individual_room_to_embed(
-    pb_obj: CmIndividualRoomPb
+    cm_individual_room_pbs: CmIndividualRoomPbTime
 ) -> interactions.Embed:
-    player = pb_obj.player
-    times = pb_obj.times_dict
+    player = cm_individual_room_pbs.get_player()
+    times = cm_individual_room_pbs.get_individual_room_times()
 
     # HACK: The spaces are the only way to make the formatting consistent.
     output = (
@@ -162,7 +165,7 @@ def pb_cm_individual_room_to_embed(
     embed = interactions.Embed(
         title=(
             f'CM room time personal bests for {player.name} '
-            f'({pb_obj.scale.identifier} scale)'
+            f'({cm_individual_room_pbs.get_scale().identifier} scale)'
         ),
         description=output,
         color=EMBED_COLOUR
