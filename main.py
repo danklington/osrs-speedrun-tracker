@@ -405,7 +405,7 @@ async def leaderboards(
     raid_type: str,
     scale: int
 ):
-    lb = Leaderboards(ctx, raid_type, scale)
+    lb = Leaderboards(raid_type, scale)
 
     # Check if the leaderboard exists.
     if not lb.get_leaderboard():

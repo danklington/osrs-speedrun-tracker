@@ -215,3 +215,11 @@ def is_valid_cm_paste(parsed_paste: dict) -> bool:
     parsed_keys = list(parsed_paste.keys())
 
     return set(expected_keys) == set(parsed_keys)
+
+
+def space_line_for_embed(emoji: str, text: str, time: str) -> str:
+    """ Formats a line with the proper spacing for an embed. """
+
+    max_line_length = 40
+    spaces = ' ' * (max_line_length - (len(text) + len(time)))
+    return f'### {emoji} `{text}:{spaces}{time}`\n'

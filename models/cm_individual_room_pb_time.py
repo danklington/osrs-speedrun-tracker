@@ -31,7 +31,7 @@ class CmIndividualRoomPbTime(Base):
                 Player.id == self.player_id
             ).first()
 
-    def get_individual_room_times(self) -> dict:
+    def get_individual_room_times(self) -> dict[str, str]:
         from util import ticks_to_time_string
 
         # Strip out unnecessary keys.

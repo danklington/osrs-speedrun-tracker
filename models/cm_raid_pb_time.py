@@ -41,7 +41,7 @@ class CmRaidPbTime(Base):
                 )
             ).all()
 
-    def get_room_times(self) -> dict:
+    def get_room_times(self) -> dict[str, str]:
         from util import ticks_to_time_string
 
         # Strip out unnecessary keys.
