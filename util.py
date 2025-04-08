@@ -131,12 +131,12 @@ async def download_attachment(
                 )
 
 
-async def open_attachment(screenshot: interactions.Attachment) -> bytes:
+async def open_attachment(attachment: interactions.Attachment) -> bytes:
     """ Loads the attachment content into memory. """
 
     # Download the attachment
     async with aiohttp.ClientSession() as client_session:
-        async with client_session.get(screenshot.url) as response:
+        async with client_session.get(attachment.url) as response:
             if response.status == 200:
                 file_content = await response.read()
                 return file_content
