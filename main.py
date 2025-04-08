@@ -1067,10 +1067,13 @@ async def submit_tob_from_csv(
           (str)(total_time * 0.6 % (60 * ((int)(total_time * 0.6 / 60)))))
     tob_times[21] = total_time
     formatted_runners_list = await validate_runners(ctx, runners, scale)
+    if not formatted_runners_list:
+        return
 
     with get_session() as session:
-        raid_type=session.query(RaidType).filter(RaidType.identifier=='Theatre of Blood').first()
+        raid_type = session.query(RaidType).filter(RaidType.identifier == 'Theatre of Blood').first()
         scale_type = session.query(Scale).filter(Scale.value == scale).first()
+
         # Find the players in the database.
         existing_runners = session.query(Player).filter(
             Player.discord_id.in_(formatted_runners_list)
@@ -1091,7 +1094,7 @@ async def submit_tob_from_csv(
         session.add(speedrun_time)
         session.flush()
         insert_tobtimes = TobRaidTime.__table__.insert().values(
-            scale_id = scale,
+            scale_id=scale,
             speedrun_time_id=speedrun_time.id,
             maiden_70=tob_times[0],
             maiden_50=tob_times[1],
