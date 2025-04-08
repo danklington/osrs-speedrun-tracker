@@ -5,5 +5,5 @@ from sqlalchemy import Table
 
 class TobRaidTime(Base):
     __table__ = Table(
-        'scale', Base.metadata, autoload_with=engine
+        'tob_raid_pb', Base.metadata, autoload_with=engine
     )

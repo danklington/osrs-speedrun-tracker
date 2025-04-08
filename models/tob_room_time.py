@@ -5,5 +5,5 @@ from sqlalchemy import Table
 
 class TobRoomTime(Base):
     __table__ = Table(
-        'scale', Base.metadata, autoload_with=engine
+        'tob_room_pb', Base.metadata, autoload_with=engine
     )
