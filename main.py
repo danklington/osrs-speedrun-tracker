@@ -23,6 +23,7 @@ from util import get_scale_choices
 from util import is_valid_cm_paste
 from util import is_valid_gametime
 from util import is_valid_runner_list
+from util import open_attachment
 from util import sync_screenshot_state
 from util import ticks_to_time_string
 from util import time_string_to_ticks
@@ -972,6 +973,25 @@ async def delete_all_cm_room_pb(
             f'({scale.identifier} scale).'
         )
         await ctx.send(embed=embed)
+
+
+@interactions.slash_command(
+    name='submit_tob_from_csv',
+    description='Submit a ToB run from a CSV file',
+    options=[
+        interactions.SlashCommandOption(
+            name='file',
+            description='Submit a raid from a CSV file',
+            type=interactions.OptionType.ATTACHMENT,
+            required=True
+        )
+    ]
+)
+async def submit_tob_from_csv(
+    ctx: interactions.SlashContext,
+    file: interactions.Attachment
+):
+    file_contents = await open_attachment(file)
 
 
 bot.start()

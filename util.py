@@ -131,6 +131,21 @@ async def download_attachment(
                 )
 
 
+async def open_attachment(screenshot: interactions.Attachment) -> bytes:
+    """ Loads the attachment content into memory. """
+
+    # Download the attachment
+    async with aiohttp.ClientSession() as client_session:
+        async with client_session.get(screenshot.url) as response:
+            if response.status == 200:
+                file_content = await response.read()
+                return file_content
+            else:
+                raise Exception(
+                    f'Failed to load attachment: {response.status}'
+                )
+
+
 def add_runners_to_database(runners: dict) -> None:
     """ Adds the runners to the database. """
 
