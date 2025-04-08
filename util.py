@@ -170,6 +170,56 @@ def add_runners_to_database(runners: dict) -> None:
         session.commit()
 
 
+async def validate_runners(
+        ctx: interactions.SlashContext, runners: str, scale: int
+) -> list[int]:
+    """ Validates the runners submitted by the user. """
+
+    from embed import error_to_embed
+
+    # Sanitise the players input.
+    runners = runners.replace(' ', '').split(',')
+
+    # Make sure the runner string is formatted correctly.
+    if not is_valid_runner_list(runners):
+        message = (
+            'One or more of the runners has not been entered correctly.'
+        )
+        embed = error_to_embed('Submission', message)
+        await ctx.send(embed=embed)
+        return
+
+    # Remove the '<@' and '>' from the runner string.
+    formatted_runners_list = format_discord_ids(runners)
+
+    # Make sure the number of submitted runners matches the number of players
+    # for the scale.
+    if len(formatted_runners_list) != scale:
+        message = (
+            'The number of runners submitted does not match the scale of '
+            f'the raid. Expected {scale}, got {len(formatted_runners_list)}.'
+        )
+        embed = error_to_embed('Submission', message)
+        await ctx.send(embed=embed)
+        return
+
+    # Associate the runner IDs with their names.
+    discord_id_and_names = get_discord_name_from_ids(
+        ctx, formatted_runners_list
+    )
+    if discord_id_and_names is None:
+        message = ('One of the users submitted is not on this server.')
+        embed = error_to_embed('Submission', message)
+        await ctx.send(embed=embed)
+        return
+
+    print(f'Runners submitted: {discord_id_and_names}')
+
+    add_runners_to_database(discord_id_and_names)
+
+    return formatted_runners_list
+
+
 def get_discord_name_from_ids(
     ctx: interactions.SlashContext, discord_ids: list[int]
 ) -> dict:

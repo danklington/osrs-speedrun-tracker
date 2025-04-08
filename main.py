@@ -27,6 +27,7 @@ from util import open_attachment
 from util import sync_screenshot_state
 from util import ticks_to_time_string
 from util import time_string_to_ticks
+from util import validate_runners
 import datetime
 import interactions
 import re
@@ -134,45 +135,8 @@ async def submit_run(
 
     time_in_ticks = int(round(total_time_in_seconds / 0.6, 1))
 
-    # Sanitise the players input.
-    runners = runners.replace(' ', '').split(',')
-
-    # Make sure the runner string is formatted correctly.
-    if not is_valid_runner_list(runners):
-        message = (
-            'One or more of the runners has not been entered correctly.'
-        )
-        embed = error_to_embed('Submission', message)
-        await ctx.send(embed=embed)
-        return
-
-    # Remove the '<@' and '>' from the runner string.
-    formatted_runners_list = format_discord_ids(runners)
-
-    # Make sure the number of submitted runners matches the number of players
-    # for the scale.
-    if len(formatted_runners_list) != scale:
-        message = (
-            'The number of runners submitted does not match the scale of '
-            f'the raid. Expected {scale}, got {len(formatted_runners_list)}.'
-        )
-        embed = error_to_embed('Submission', message)
-        await ctx.send(embed=embed)
-        return
-
-    # Associate the runner IDs with their names.
-    discord_id_and_names = get_discord_name_from_ids(
-        ctx, formatted_runners_list
-    )
-    if discord_id_and_names is None:
-        message = ('One of the users submitted is not on this server.')
-        embed = error_to_embed('Submission', message)
-        await ctx.send(embed=embed)
-        return
-
-    print(f'Runners submitted: {discord_id_and_names}')
-
-    add_runners_to_database(discord_id_and_names)
+    # Validate the runners submitted.
+    formatted_runners_list = await validate_runners(ctx, runners, scale)
 
     with get_session() as session:
         # Find the players in the database.
@@ -639,42 +603,8 @@ async def submit_cm_from_clipboard(
 
         print(f'Room times submitted: {room_times}')
 
-        # Sanitise the players input.
-        runners = runners.replace(' ', '').split(',')
-
-        # Make sure the runner string is formatted correctly.
-        if not is_valid_runner_list(runners):
-            embed = error_to_embed(
-                'Submission',
-                'One or more of the runners has not been entered correctly.'
-            )
-            await ctx.send(embed=embed)
-            return
-
-        # Remove the '<@' and '>' from the runner string.
-        formatted_runners_list = format_discord_ids(runners)
-
-        # Make sure the number of submitted runners matches the number of
-        # players for the scale.
-        if len(formatted_runners_list) != scale:
-            await ctx.send(
-                'The number of runners submitted does not match the scale of '
-                'the raid. '
-                f'Expected {scale}, got {len(formatted_runners_list)}.'
-            )
-            return
-
-        # Associate the runner IDs with their names.
-        discord_id_and_names = get_discord_name_from_ids(
-            ctx, formatted_runners_list
-        )
-        if discord_id_and_names is None:
-            await ctx.send('One of the users submitted is not on this server.')
-            return
-
-        print(f'Runners submitted: {discord_id_and_names}')
-
-        add_runners_to_database(discord_id_and_names)
+        # Validate the runners submitted.
+        formatted_runners_list = await validate_runners(ctx, runners, scale)
 
         # Find the players in the database.
         existing_runners = session.query(Player).filter(
