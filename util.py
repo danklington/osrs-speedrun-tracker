@@ -187,7 +187,7 @@ async def validate_runners(
         )
         embed = error_to_embed('Submission', message)
         await ctx.send(embed=embed)
-        return
+        return []
 
     # Remove the '<@' and '>' from the runner string.
     formatted_runners_list = format_discord_ids(runners)
@@ -201,7 +201,7 @@ async def validate_runners(
         )
         embed = error_to_embed('Submission', message)
         await ctx.send(embed=embed)
-        return
+        return []
 
     # Associate the runner IDs with their names.
     discord_id_and_names = get_discord_name_from_ids(
@@ -211,7 +211,7 @@ async def validate_runners(
         message = ('One of the users submitted is not on this server.')
         embed = error_to_embed('Submission', message)
         await ctx.send(embed=embed)
-        return
+        return []
 
     print(f'Runners submitted: {discord_id_and_names}')
 

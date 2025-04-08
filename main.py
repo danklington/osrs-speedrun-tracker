@@ -137,6 +137,8 @@ async def submit_run(
 
     # Validate the runners submitted.
     formatted_runners_list = await validate_runners(ctx, runners, scale)
+    if not formatted_runners_list:
+        return
 
     with get_session() as session:
         # Find the players in the database.
@@ -605,6 +607,8 @@ async def submit_cm_from_clipboard(
 
         # Validate the runners submitted.
         formatted_runners_list = await validate_runners(ctx, runners, scale)
+        if not formatted_runners_list:
+            return
 
         # Find the players in the database.
         existing_runners = session.query(Player).filter(
