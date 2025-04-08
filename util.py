@@ -131,7 +131,7 @@ async def download_attachment(
                 )
 
 
-async def open_attachment(attachment: interactions.Attachment) -> bytes:
+async def open_attachment(attachment: interactions.Attachment) -> str:
     """ Loads the attachment content into memory. """
 
     # Download the attachment
@@ -139,7 +139,7 @@ async def open_attachment(attachment: interactions.Attachment) -> bytes:
         async with client_session.get(attachment.url) as response:
             if response.status == 200:
                 file_content = await response.read()
-                return file_content
+                return file_content.decode('utf-8')
             else:
                 raise Exception(
                     f'Failed to load attachment: {response.status}'
