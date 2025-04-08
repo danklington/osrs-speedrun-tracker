@@ -13,6 +13,7 @@ from models.player import Player
 from models.raid_type import RaidType
 from models.scale import Scale
 from models.speedrun_time import SpeedrunTime
+from models.tob_raid_time import TobRaidTime
 from util import add_runners_to_database
 from util import download_attachment
 from util import format_discord_ids
@@ -914,6 +915,12 @@ async def delete_all_cm_room_pb(
     description='Submit a ToB run from a CSV file',
     options=[
         interactions.SlashCommandOption(
+            name='runners',
+            description='Enter the names of the runner(s) (comma separated)',
+            type=interactions.OptionType.STRING,
+            required=True
+        ),
+        interactions.SlashCommandOption(
             name='file',
             description='Submit a raid from a CSV file',
             type=interactions.OptionType.ATTACHMENT,
@@ -923,9 +930,193 @@ async def delete_all_cm_room_pb(
 )
 async def submit_tob_from_csv(
     ctx: interactions.SlashContext,
+    runners: str,
     file: interactions.Attachment
 ):
-    file_contents = await open_attachment(file)
+    tobdata = await open_attachment(file)
+    print(tobdata)
+    scale = 0
+    total_time = 0
+    verzik_flag = False
+    verzik_p1_flag = True
+    verzik_redcrabs_flag = True
+    # Array for all relevant tob times (in order)
+    tob_times = [0] * 22
 
+    for line in tobdata.strip().splitlines():
+        parts = line.split(',')
+        if len(parts) > 3:
+            match parts[3]:
+                # Scale
+                case '1':
+                    players =[x for x in parts[-5:]  if x]
+                    scale=len(players)
+                    print(f"Scale: {scale}")
+                    formatted_runners_list = await validate_runners(ctx, runners, scale)
+                    if not formatted_runners_list:
+                        break
+                 ########## Maiden ##########
+                # Maiden 70s
+                case '13':
+                    tob_times[0] = (int)(parts[4])
+                    print("Maiden 70s: " + parts[4])
+
+                # Maiden 50s
+                case '14':
+                    tob_times[1] = (int)(parts[4])
+                    print("Maiden 50s: " + parts[4])
+
+                # Maiden 30s
+                case '15':
+                    tob_times[2] = (int)(parts[4])
+                    print("Maiden 30s: " + parts[4])
+
+                # Maiden total time
+                case '17':
+                    tob_times[3] = (int)(parts[4])
+                    total_time += (int)(parts[4])
+                    print("Maiden total time: " + parts[4] + "\n----------")
+
+                ########## Bloat ##########
+                case '23':
+                    tob_times[4] = (int)(parts[4])
+                    total_time += (int)(parts[4])
+                    print("Bloat: " + parts[4] + "\n----------")
+
+                ########## Nylocas ##########
+                # Nylo waves
+                case '35':
+                    tob_times[5] = (int)(parts[4])
+                    print("Nylo waves: " + parts[4])
+                # Nylo cleanup
+                case '36':
+                    tob_times[6] = (int)(parts[4])
+                    print(f"Nylo cleanup: {tob_times[6]}({tob_times[6] - tob_times[5]})")
+
+                    # Nylo boss spawn
+                    tob_times[7] = tob_times[6] + 16
+                    print(f"Nylo boss spawn: {tob_times[7]}")
+
+                # Nylo total time
+                case '45':
+                    tob_times[8] = (int)(parts[4])
+                    total_time += (int)(parts[4])
+                    print("Nylo total time: " + parts[4] + "\n----------")
+
+                ########## Sotetseg ##########
+                # Sote Maze 1 start
+                case '52':
+                    tob_times[9] = (int)(parts[4])
+                # Sote Maze 1 end
+                case '53':
+                    tob_times[10] = (int)(parts[4])
+                    print(f"Sote 1st maze: {tob_times[9]}({tob_times[10] - tob_times[9]})")
+                # Sote Maze 2 start
+                case '54':
+                    tob_times[11] = (int)(parts[4])
+                # Sote Maze 2 end
+                case '55':
+                    tob_times[12] = (int)(parts[4])
+                    print(f"Sote 2nd maze: {tob_times[11]}({tob_times[12] - tob_times[11]})")
+                # Sote total time
+                case '57':
+                    tob_times[13] = (int)(parts[4])
+                    total_time += (int)(parts[4])
+                    print(f"Sotesteg total time: {tob_times[13]}" + "\n----------")
+
+                ########## Xarpus ##########
+                # Xarpus screech
+                case '63':
+                    tob_times[14] = (int)(parts[4])
+                    print(f"Xarpus screech: {tob_times[14]}")
+                # Xarpus total time
+                case '65':
+                    tob_times[15] = (int)(parts[4])
+                    total_time += (int)(parts[4])
+                    print(f"Xarpus total time: {tob_times[15]}" + "\n----------")
+
+                ########## Verzik ##########
+                # Verzik p1
+                case '73':
+                    if verzik_p1_flag == True:
+                        tob_times[16] = (int)(parts[4])
+                        print(f"Verzik p1: {tob_times[16]} ")
+                        verzik_p1_flag = False
+                # Verzik red crabs
+                case '80':
+                    if verzik_redcrabs_flag == True:
+                        tob_times[17] = (int)(parts[4])
+                        print(f"Verzik red crabs: {tob_times[17]}")
+                        verzik_redcrabs_flag = False
+                # Verzik p2
+                case '74':
+                    tob_times[18] = (int)(parts[4])
+                    print(f"Verzik p2: {tob_times[18]}({tob_times[18] - tob_times[16]}) ")
+                # Verzik total time
+                case '76':
+                    if verzik_flag == True:
+                        tob_times[20] = (int)(parts[4])
+                        total_time += (int)(parts[4])
+                        tob_times[19] = tob_times[20] - tob_times[18]
+                        print(f"Verzik p3: {tob_times[19]}"
+                              f"\nVerzik total time: {tob_times[20]}")
+
+                    verzik_flag = True
+
+    print("total ticks: " + (str)(total_time) + "\ntotal time: " + (str)((int)(total_time * 0.6 / 60)) + ':' +
+          (str)(total_time * 0.6 % (60 * ((int)(total_time * 0.6 / 60)))))
+    tob_times[21] = total_time
+    formatted_runners_list = await validate_runners(ctx, runners, scale)
+
+    with get_session() as session:
+        raid_type=session.query(RaidType).filter(RaidType.identifier=='Theatre of Blood').first()
+        scale_type = session.query(Scale).filter(Scale.value == scale).first()
+        # Find the players in the database.
+        existing_runners = session.query(Player).filter(
+            Player.discord_id.in_(formatted_runners_list)
+        ).all()
+
+        # Format the runners for the database query.
+        runner_db_id_string = ','.join(
+            [str(runner.id) for runner in existing_runners]
+        )
+
+        speedrun_time = SpeedrunTime(
+            raid_type_id=raid_type.id,
+            scale_id=scale_type.id,
+            time=total_time,
+            players=runner_db_id_string
+        )
+
+        session.add(speedrun_time)
+        session.flush()
+        insert_tobtimes = TobRaidTime.__table__.insert().values(
+            scale_id = scale,
+            speedrun_time_id=speedrun_time.id,
+            maiden_70=tob_times[0],
+            maiden_50=tob_times[1],
+            maiden_30=tob_times[2],
+            maiden=tob_times[3],
+            bloat=tob_times[4],
+            nylocas_waves=tob_times[5],
+            nylocas_cleanup=tob_times[6],
+            nylocas_bossspawn=tob_times[7],
+            nylocas=tob_times[8],
+            sotetseg_maze1_start=tob_times[9],
+            sotetseg_maze1_end=tob_times[10],
+            sotetseg_maze2_start=tob_times[11],
+            sotetseg_maze2_end=tob_times[12],
+            sotetseg=tob_times[13],
+            xarpus_screech=tob_times[14],
+            xarpus=tob_times[15],
+            verzik_p1=tob_times[16],
+            verzik_reds=tob_times[17],
+            verzik_p2=tob_times[18],
+            verzik_p3=tob_times[19],
+            verzik=tob_times[20],
+            completed=tob_times[21]
+        )
+        session.execute(insert_tobtimes)
+        session.commit()
 
 bot.start()
