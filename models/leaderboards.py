@@ -1,4 +1,6 @@
 from db import get_session
+from models.player import Player
+from models.player_group import PlayerGroup
 from models.raid_type import RaidType
 from models.scale import Scale
 from models.speedrun_time import SpeedrunTime
@@ -22,20 +24,39 @@ class Leaderboards():
                 Scale.value == self._scale
             ).first()
 
+    def get_players(self, speedrun_time: SpeedrunTime) -> list[Player]:
+        with get_session() as session:
+            # Find the players for this speedrun time.
+            player_group = session.query(PlayerGroup).filter(
+                PlayerGroup.id == speedrun_time.player_group_id
+            ).all()
+            if not player_group:
+                return []
+
+            # Find the players in the player group.
+            players = []
+            for grouped_player in player_group:
+                player = session.query(Player).filter(
+                    Player.id == grouped_player.player_id
+                ).first()
+                if player:
+                    players.append(player)
+
+            return players
+
     def get_leaderboard(self, limit: int = 10) -> list[SpeedrunTime]:
         with get_session() as session:
-            # Find the leaderboards.
             subquery = session.query(
-                SpeedrunTime.players,
+                SpeedrunTime.player_group_id,
                 func.min(SpeedrunTime.time).label('best_time')
             ).filter(
                 SpeedrunTime.raid_type_id == self.get_raid_type().id,
                 SpeedrunTime.scale_id == self.get_scale().id
-            ).group_by(SpeedrunTime.players).subquery()
+            ).group_by(SpeedrunTime.player_group_id).subquery()
 
             leaderboards = session.query(SpeedrunTime).join(
                 subquery,
-                (SpeedrunTime.players == subquery.c.players) &
+                (SpeedrunTime.player_group_id == subquery.c.player_group_id) &
                 (SpeedrunTime.time == subquery.c.best_time)
             ).order_by(SpeedrunTime.time).limit(limit).all()
 

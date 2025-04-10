@@ -35,19 +35,13 @@ def leaderboard_to_embed(leaderboards: Leaderboards) -> interactions.Embed:
         ':six:', ':seven:', ':eight:', ':nine:', ':keycap_ten:'
     ]
 
-    with get_session() as session:
-        for index, run in enumerate(leaderboards.get_leaderboard()):
-            formatted_time = ticks_to_time_string(run.time)
-            players = run.players.split(',')
-            player_names = []
-            for player in players:
-                player_obj = session.query(Player).filter(
-                    Player.id == player
-                ).first()
-                player_names.append(player_obj.name)
-            player_string = ', '.join(player_names)
-            output += emoji_list[index]
-            output += f' | `{formatted_time}` - **{player_string}**\n\n'
+    for index, run in enumerate(leaderboards.get_leaderboard()):
+        formatted_time = ticks_to_time_string(run.time)
+        players = leaderboards.get_players(run)
+        player_names = [player.name for player in players]
+        player_string = ', '.join(player_names)
+        output += emoji_list[index]
+        output += f' | `{formatted_time}` - **{player_string}**\n\n'
 
     return interactions.Embed(
         title=(

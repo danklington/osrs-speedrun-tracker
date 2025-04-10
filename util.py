@@ -3,9 +3,11 @@ from decimal import Decimal, getcontext
 from models.cm_individual_room_pb_time import CmIndividualRoomPbTime
 from models.cm_raid_pb_time import CmRaidPbTime
 from models.player import Player
+from models.player_group import PlayerGroup
 from models.raid_type import RaidType
 from models.scale import Scale
 from models.speedrun_time import SpeedrunTime
+from sqlalchemy import func
 import aiohttp
 import datetime
 import interactions
@@ -149,30 +151,97 @@ async def open_attachment(attachment: interactions.Attachment) -> str:
 def add_runners_to_database(runners: dict) -> None:
     """ Adds the runners to the database. """
 
+    # List of players that now have a DB entry.
+    players = []
+
     with get_session() as session:
         # Compare the submitted players to the database of previous players.
         for discord_id in runners:
             # Check if the player is already in the database.
-            found_player = session.query(Player).filter(
+            player = session.query(Player).filter(
                 Player.discord_id == discord_id
             ).first()
-            if not found_player:
+            if not player:
                 print(f'Player does not exist in the DB. Adding: {discord_id}')
-                new_player = Player(
+                player = Player(
                     discord_id=discord_id, name=runners[discord_id]
                 )
-                session.add(new_player)
+                session.add(player)
                 session.flush()
                 continue
 
+            players.append(player)
+
             print(f'Player exists in DB: {discord_id}')
+
+        # Check if there's a player group which contains all of the
+        # players.
+        player_ids = [player.id for player in players]
+        group_id = get_player_group_id(player_ids)
+        if group_id:
+            print(f'Player group exists: {group_id}')
+            return
+
+        print('Player group does not exist. Creating new group.')
+
+        # Get a new group ID.
+        group_id = session.query(func.max(PlayerGroup.id)).scalar()
+        if group_id is None:
+            group_id = 1
+        else:
+            group_id += 1
+
+        # Add the players to the group.
+        for player in players:
+            player_group = PlayerGroup(
+                id=group_id,
+                player_id=player.id
+            )
+            print(
+                f'Adding player {player.name} ({player.id}) to group '
+                f'{group_id}.'
+            )
+            session.add(player_group)
 
         session.commit()
 
 
+def get_player_group_id(player_ids: list[int]) -> int | None:
+    """ Checks if a player group exists with a given list of player IDs. """
+
+    with get_session() as session:
+        group_ids = session.query(PlayerGroup.id).filter(
+            PlayerGroup.player_id.in_(player_ids)
+        ).group_by(
+            PlayerGroup.id
+        ).having(
+            func.count(PlayerGroup.player_id) == len(player_ids)
+        ).all()
+
+        for group_id, in group_ids:
+            group_player_ids = session.query(PlayerGroup.player_id).filter(
+                PlayerGroup.id == group_id
+            ).all()
+            group_player_ids = {player_id for player_id, in group_player_ids}
+
+            if group_player_ids == set(player_ids):
+                return group_id
+
+        return None
+
+
+def get_players_from_discord_ids(discord_ids: list[int]) -> list[Player]:
+    """ Retrieves the players from the database using their Discord IDs. """
+
+    with get_session() as session:
+        return session.query(Player).filter(
+            Player.discord_id.in_(discord_ids)
+        ).all()
+
+
 async def validate_runners(
         ctx: interactions.SlashContext, runners: str, scale: int
-) -> list[int]:
+) -> list[int | None]:
     """ Validates the runners submitted by the user. """
 
     from embed import error_to_embed

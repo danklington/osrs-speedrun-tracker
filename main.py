@@ -10,15 +10,16 @@ from models.cm_individual_room_pb_time import CmIndividualRoomPbTime
 from models.cm_raid_pb_time import CmRaidPbTime
 from models.leaderboards import Leaderboards
 from models.player import Player
+from models.player_group import PlayerGroup
 from models.raid_type import RaidType
 from models.scale import Scale
 from models.speedrun_time import SpeedrunTime
 from models.tob_raid_time import TobRaidTime
-from util import add_runners_to_database
 from util import download_attachment
 from util import format_discord_ids
 from util import get_cm_rooms
-from util import get_discord_name_from_ids
+from util import get_players_from_discord_ids
+from util import get_player_group_id
 from util import get_raid_choices
 from util import get_scale_choices
 from util import is_valid_cm_paste
@@ -142,16 +143,10 @@ async def submit_run(
         return
 
     with get_session() as session:
-        # Find the players in the database.
-        existing_runners = session.query(Player).filter(
-            Player.discord_id.in_(formatted_runners_list)
-        ).all()
-
-        # Format the runners for the database query, and for adding it later
-        # if we do not find an identical run.
-        runner_db_id_string = ','.join(
-            [str(runner.id) for runner in existing_runners]
-        )
+        # Check if the players are in a group.
+        players = get_players_from_discord_ids(formatted_runners_list)
+        player_ids = [player.id for player in players]
+        player_group_id = get_player_group_id(player_ids)
 
         # Check if this exact run has already been submitted.
         run_exists = session.query(SpeedrunTime).filter(
@@ -160,7 +155,7 @@ async def submit_run(
             Scale.value == scale,
             SpeedrunTime.scale_id == Scale.id,
             SpeedrunTime.time == time_in_ticks,
-            SpeedrunTime.players == runner_db_id_string
+            SpeedrunTime.player_group_id == player_group_id
         ).first()
         if run_exists:
             message = ('An identical run has already been submitted.')
@@ -186,8 +181,8 @@ async def submit_run(
         new_time = SpeedrunTime(
             raid_type_id=raid.id,
             scale_id=scale.id,
+            player_group_id=player_group_id,
             time=time_in_ticks,
-            players=runner_db_id_string,
             screenshot=image_name
         )
         session.add(new_time)
@@ -294,17 +289,21 @@ async def delete_run(
 
     formatted_runners_list = format_discord_ids(runners)
 
-    with get_session() as session:
-        # Find the players in the database.
-        existing_runners = session.query(Player).filter(
-            Player.discord_id.in_(formatted_runners_list)
-        ).all()
+    players = get_players_from_discord_ids(formatted_runners_list)
+    player_ids = [player.id for player in players]
+    player_group_id = get_player_group_id(player_ids)
 
-        # Format the runners for the database query, and for adding it later
-        # if we do not find an identical run.
-        runner_db_id_string = ','.join(
-            [str(runner.id) for runner in existing_runners]
-        )
+    with get_session() as session:
+        # # Find the players in the database.
+        # existing_runners = session.query(Player).filter(
+        #     Player.discord_id.in_(formatted_runners_list)
+        # ).all()
+
+        # # Format the runners for the database query, and for adding it later
+        # # if we do not find an identical run.
+        # runner_db_id_string = ','.join(
+        #     [str(runner.id) for runner in existing_runners]
+        # )
 
         speedruntime_found = session.query(SpeedrunTime).filter(
             RaidType.identifier == raid_type,
@@ -312,7 +311,7 @@ async def delete_run(
             Scale.value == scale,
             SpeedrunTime.scale_id == Scale.id,
             SpeedrunTime.time == time_in_ticks,
-            SpeedrunTime.players == runner_db_id_string
+            SpeedrunTime.player_group_id == player_group_id
         ).first()
 
         # Get the scale object to display the identifier in the message.
@@ -438,12 +437,12 @@ async def pb(
         ).first()
 
         # Find the personal best.
-        speedrun_time = session.query(SpeedrunTime).filter(
+        speedrun_time = session.query(SpeedrunTime).join(
+            PlayerGroup, SpeedrunTime.player_group_id == PlayerGroup.id
+        ).filter(
             SpeedrunTime.raid_type_id == raid_type.id,
             SpeedrunTime.scale_id == scale.id,
-            SpeedrunTime.players.contains(
-                ','.join([str(player.id)])
-            )
+            PlayerGroup.player_id == player.id
         ).order_by(SpeedrunTime.time).first()
 
         if not speedrun_time:
@@ -611,15 +610,10 @@ async def submit_cm_from_clipboard(
         if not formatted_runners_list:
             return
 
-        # Find the players in the database.
-        existing_runners = session.query(Player).filter(
-            Player.discord_id.in_(formatted_runners_list)
-        ).all()
-
-        # Format the runners for the database query.
-        runner_db_id_string = ','.join(
-            [str(runner.id) for runner in existing_runners]
-        )
+        # Get the group ID.
+        players = get_players_from_discord_ids(formatted_runners_list)
+        player_ids = [player.id for player in players]
+        player_group_id = get_player_group_id(player_ids)
 
         # Get the CoX: CM raid type.
         cm_raid_type = session.query(RaidType).filter(
@@ -631,16 +625,16 @@ async def submit_cm_from_clipboard(
         speedrun_time = session.query(SpeedrunTime).filter(
             SpeedrunTime.raid_type_id == cm_raid_type.id,
             SpeedrunTime.scale_id == cm_raid_scale.id,
-            SpeedrunTime.time == total_raid_time,
-            SpeedrunTime.players == runner_db_id_string
+            SpeedrunTime.player_group_id == player_group_id,
+            SpeedrunTime.time == total_raid_time
         ).first()
         if not speedrun_time:
             # Save the run to the database.
             speedrun_time = SpeedrunTime(
                 raid_type_id=cm_raid_type.id,
                 scale_id=cm_raid_scale.id,
-                time=total_raid_time,
-                players=runner_db_id_string
+                player_group_id=player_group_id,
+                time=total_raid_time
             )
             session.add(speedrun_time)
             session.flush()
@@ -650,7 +644,7 @@ async def submit_cm_from_clipboard(
         room_before_after = ()
 
         # Update individual room time PBs per player.
-        for runner in existing_runners:
+        for runner in players:
             # Get the player's best room times.
             best_times = session.query(CmIndividualRoomPbTime).filter(
                 CmIndividualRoomPbTime.player_id == runner.id,
@@ -1075,20 +1069,15 @@ async def submit_tob_from_csv(
         scale_type = session.query(Scale).filter(Scale.value == scale).first()
 
         # Find the players in the database.
-        existing_runners = session.query(Player).filter(
-            Player.discord_id.in_(formatted_runners_list)
-        ).all()
-
-        # Format the runners for the database query.
-        runner_db_id_string = ','.join(
-            [str(runner.id) for runner in existing_runners]
-        )
+        players = get_players_from_discord_ids(formatted_runners_list)
+        player_ids = [player.id for player in players]
+        player_group_id = get_player_group_id(player_ids)
 
         speedrun_time = SpeedrunTime(
             raid_type_id=raid_type.id,
             scale_id=scale_type.id,
             time=total_time,
-            players=runner_db_id_string
+            player_group_id=player_group_id
         )
 
         session.add(speedrun_time)

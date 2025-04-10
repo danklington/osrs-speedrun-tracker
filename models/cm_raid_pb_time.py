@@ -2,6 +2,7 @@ from db import Base
 from db import engine
 from db import get_session
 from models.player import Player
+from models.player_group import PlayerGroup
 from models.raid_type import RaidType
 from models.scale import Scale
 from models.speedrun_time import SpeedrunTime
@@ -31,15 +32,23 @@ class CmRaidPbTime(Base):
                 SpeedrunTime.id == self.speedrun_time_id
             ).first()
 
-            return session.query(Player).filter(
-                Player.id.in_(
-                    [
-                        int(player_id)
-                        for player_id
-                        in speedrun_time.players.split(',')
-                    ]
-                )
+            # Find the players for this speedrun time.
+            player_group = session.query(PlayerGroup).filter(
+                PlayerGroup.id == speedrun_time.player_group_id
             ).all()
+            if not player_group:
+                return []
+
+            # Find the players in the player group.
+            players = []
+            for grouped_player in player_group:
+                player = session.query(Player).filter(
+                    Player.id == grouped_player.player_id
+                ).first()
+                if player:
+                    players.append(player)
+
+            return players
 
     def get_room_times(self) -> dict[str, str]:
         from util import ticks_to_time_string
