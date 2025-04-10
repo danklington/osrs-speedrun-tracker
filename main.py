@@ -924,7 +924,6 @@ async def submit_tob_from_csv(
     file: interactions.Attachment
 ):
     tobdata = await open_attachment(file)
-    print(tobdata)
     scale = 0
     total_time = 0
     verzik_flag = False
@@ -1079,7 +1078,6 @@ async def submit_tob_from_csv(
         session.add(speedrun_time)
         session.flush()
         insert_tobtimes = TobRaidTime.__table__.insert().values(
-            scale_id=scale,
             speedrun_time_id=speedrun_time.id,
             maiden_70=tob_times[0],
             maiden_50=tob_times[1],
