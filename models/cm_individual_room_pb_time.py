@@ -2,6 +2,7 @@ from db import Base
 from db import engine
 from db import get_session
 from models.player import Player
+from models.player_group import PlayerGroup
 from models.raid_type import RaidType
 from models.scale import Scale
 from models.speedrun_time import SpeedrunTime
@@ -51,8 +52,11 @@ class CmIndividualRoomPbTime(Base):
 
     def get_speedrun_time(self) -> SpeedrunTime:
         with get_session() as session:
-            return session.query(SpeedrunTime).filter(
+            return session.query(SpeedrunTime).join(
+                PlayerGroup,
+                SpeedrunTime.player_group_id == PlayerGroup.group_id
+            ).filter(
                 SpeedrunTime.raid_type_id == self.get_raid_type().id,
                 SpeedrunTime.scale_id == self.get_scale().id,
-                SpeedrunTime.players.contains(str(self.get_player().id))
+                PlayerGroup.player_id == self.get_player().id
             ).order_by(SpeedrunTime.time).first()

@@ -447,8 +447,8 @@ async def pb(
 
         if not speedrun_time:
             message = (
-                f'{runner.display_name} does not have a personal best for '
-                f'{raid_type.identifier} with {scale.identifier}.'
+                f'{runner.display_name} does not have a {scale.identifier} '
+                f'personal best for {raid_type.identifier}.'
             )
             embed = error_to_embed('No PB found', message)
             await ctx.send(embed=embed)
@@ -709,12 +709,10 @@ async def submit_cm_from_clipboard(
 
         # If a run doesn't exist, just add it.
         run_exists = session.query(CmRaidPbTime).filter(
-            CmRaidPbTime.scale_id == cm_raid_scale.id,
             CmRaidPbTime.speedrun_time_id == speedrun_time.id
         ).first()
         if not run_exists:
             new_run = CmRaidPbTime(
-                scale_id=scale,
                 speedrun_time_id=speedrun_time.id,
                 completed=total_raid_time,
                 **room_times
@@ -737,13 +735,11 @@ async def submit_cm_from_clipboard(
 
         # Check if the run is a PB.
         better_run_exists = session.query(CmRaidPbTime).filter(
-            CmRaidPbTime.scale_id == cm_raid_scale.id,
             CmRaidPbTime.speedrun_time_id == speedrun_time.id,
             CmRaidPbTime.completed <= total_raid_time
         ).first()
         if not better_run_exists:
             new_run = CmRaidPbTime(
-                scale_id=scale,
                 speedrun_time_id=speedrun_time.id,
                 completed=total_raid_time,
                 **room_times

@@ -23,7 +23,7 @@ class CmRaidPbTime(Base):
     def get_scale(self) -> Scale:
         with get_session() as session:
             return session.query(Scale).filter(
-                Scale.id == self.scale_id
+                Scale.id == self.get_speedrun_time().scale_id
             ).first()
 
     def get_players(self) -> list[Player]:
@@ -71,9 +71,5 @@ class CmRaidPbTime(Base):
     def get_speedrun_time(self) -> SpeedrunTime:
         with get_session() as session:
             return session.query(SpeedrunTime).filter(
-                SpeedrunTime.raid_type_id == self.get_raid_type().id,
-                SpeedrunTime.scale_id == self.get_scale().id,
-                SpeedrunTime.players.contains(
-                    ','.join([str(player.id) for player in self.get_players()])
-                )
-            ).order_by(SpeedrunTime.time).first()
+                SpeedrunTime.id == self.speedrun_time_id
+            ).first()

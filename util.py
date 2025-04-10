@@ -340,8 +340,8 @@ def is_valid_cm_paste(parsed_paste: dict) -> bool:
         if '.' not in value:
             return False
 
-    # Remove first 3 elements because they're just IDs.
-    expected_keys = CmRaidPbTime.__table__.columns.keys()[3:]
+    # Remove first 2 elements because they're just IDs.
+    expected_keys = CmRaidPbTime.__table__.columns.keys()[2:]
 
     # Add the size key because it's not in the DB but should be in the paste.
     expected_keys.append('size')
