@@ -1,7 +1,7 @@
 from db import get_session
 from decimal import Decimal, getcontext
-from models.cm_individual_room_pb_time import CmIndividualRoomPbTime
-from models.cm_raid_pb_time import CmRaidPbTime
+from models.cm_room_time import CmRoomTime
+from models.cm_raid_time import CmRaidTime
 from models.player import Player
 from models.player_group import PlayerGroup
 from models.raid_type import RaidType
@@ -20,11 +20,13 @@ def get_raid_choices() -> list[interactions.SlashCommandChoice]:
     with get_session() as session:
         raid_types = session.query(RaidType).all()
         raid_choices = [
-            {'name': raid.identifier, 'value': raid.identifier}
+            interactions.SlashCommandChoice(
+                name=raid.identifier, value=raid.identifier
+            )
             for raid in raid_types
         ]
 
-        return sorted(raid_choices, key=lambda x: x['name'])
+        return sorted(raid_choices, key=lambda x: str(x.name))
 
 
 def get_scale_choices() -> list[interactions.SlashCommandChoice]:
@@ -33,21 +35,25 @@ def get_scale_choices() -> list[interactions.SlashCommandChoice]:
     with get_session() as session:
         scales = session.query(Scale).all()
         scale_choices = [
-            {'name': scale.identifier, 'value': scale.value}
+            interactions.SlashCommandChoice(
+                name=scale.identifier, value=scale.value
+            )
             for scale in scales
         ]
 
-        return sorted(scale_choices, key=lambda x: x['value'])
+        return sorted(scale_choices, key=lambda x: x.value)
 
 
 def get_cm_rooms() -> list[interactions.SlashCommandChoice]:
     """ Returns the names of the CM rooms. """
 
-    cm_rooms = CmIndividualRoomPbTime.__table__.columns.keys()[3:]
+    cm_rooms = CmRoomTime.__table__.columns.keys()[3:]
 
     # Convert the list to a dictionary for the interaction.
     cm_rooms = [
-        {'name': cm_room.capitalize(), 'value': cm_room}
+        interactions.SlashCommandChoice(
+            name=cm_room.capitalize(), value=cm_room
+        )
         for cm_room in cm_rooms
     ]
 
@@ -341,7 +347,7 @@ def is_valid_cm_paste(parsed_paste: dict) -> bool:
             return False
 
     # Remove first 2 elements because they're just IDs.
-    expected_keys = CmRaidPbTime.__table__.columns.keys()[2:]
+    expected_keys = CmRaidTime.__table__.columns.keys()[2:]
 
     # Add the size key because it's not in the DB but should be in the paste.
     expected_keys.append('size')

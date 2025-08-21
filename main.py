@@ -3,11 +3,13 @@ from db import get_session
 from embed import confirmation_to_embed
 from embed import error_to_embed
 from embed import leaderboard_to_embed
-from embed import pb_cm_individual_room_to_embed
 from embed import pb_cm_raid_to_embed
+from embed import pb_cm_room_to_embed
 from embed import pb_to_embed
-from models.cm_individual_room_pb_time import CmIndividualRoomPbTime
-from models.cm_raid_pb_time import CmRaidPbTime
+from embed import pb_tob_raid_to_embed
+from embed import pb_tob_room_to_embed
+from models.cm_raid_time import CmRaidTime
+from models.cm_room_time import CmRoomTime
 from models.leaderboards import Leaderboards
 from models.player import Player
 from models.player_group import PlayerGroup
@@ -15,11 +17,12 @@ from models.raid_type import RaidType
 from models.scale import Scale
 from models.speedrun_time import SpeedrunTime
 from models.tob_raid_time import TobRaidTime
+from models.tob_room_time import TobRoomTime
 from util import download_attachment
 from util import format_discord_ids
 from util import get_cm_rooms
-from util import get_players_from_discord_ids
 from util import get_player_group_id
+from util import get_players_from_discord_ids
 from util import get_raid_choices
 from util import get_scale_choices
 from util import is_valid_cm_paste
@@ -52,56 +55,58 @@ cm_rooms = get_cm_rooms()
     name='submit_run',
     description='Submit a speedrun time',
     options=[
-        interactions.SlashCommandOption(
-            name='raid_type',
-            description='Which raid do you want to submit a time for?',
-            type=interactions.OptionType.STRING,
-            choices=raid_choices,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='scale',
-            description='Submit the scale of the raid',
-            type=interactions.OptionType.INTEGER,
-            choices=scale_choices,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='runners',
-            description='Submit the names of the runner(s) (comma separated)',
-            type=interactions.OptionType.STRING,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='minutes',
-            description='Enter the minutes in the time you got',
-            type=interactions.OptionType.INTEGER,
-            min_value=0,
-            max_value=59,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='seconds',
-            description='Enter the seconds in the time you got',
-            type=interactions.OptionType.INTEGER,
-            min_value=0,
-            max_value=59,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='milliseconds',
-            description='Enter the milliseconds in the time you got',
-            type=interactions.OptionType.INTEGER,
-            min_value=0,
-            max_value=8,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='screenshot',
-            description='Submit a screenshot of the time',
-            type=interactions.OptionType.ATTACHMENT,
-            required=True
-        )
+        {
+            "name": "raid_type",
+            "description": "Which raid do you want to submit a time for?",
+            "type": interactions.OptionType.STRING,
+            "choices": raid_choices,
+            "required": True
+        },
+        {
+            "name": "scale",
+            "description": "Submit the scale of the raid",
+            "type": interactions.OptionType.INTEGER,
+            "choices": scale_choices,
+            "required": True
+        },
+        {
+            "name": "runners",
+            "description": (
+                "Submit the names of the runner(s) (comma separated)"
+            ),
+            "type": interactions.OptionType.STRING,
+            "required": True
+        },
+        {
+            "name": "minutes",
+            "description": "Enter the minutes in the time you got",
+            "type": interactions.OptionType.INTEGER,
+            "min_value": 0,
+            "max_value": 59,
+            "required": True
+        },
+        {
+            "name": "seconds",
+            "description": "Enter the seconds in the time you got",
+            "type": interactions.OptionType.INTEGER,
+            "min_value": 0,
+            "max_value": 59,
+            "required": True
+        },
+        {
+            "name": "milliseconds",
+            "description": "Enter the milliseconds in the time you got",
+            "type": interactions.OptionType.INTEGER,
+            "min_value": 0,
+            "max_value": 8,
+            "required": True
+        },
+        {
+            "name": "screenshot",
+            "description": "Submit a screenshot of the time",
+            "type": interactions.OptionType.ATTACHMENT,
+            "required": True
+        }
     ]
 )
 async def submit_run(
@@ -211,50 +216,54 @@ async def submit_run(
     name='delete_run',
     description='Delete a speedrun time',
     options=[
-        interactions.SlashCommandOption(
-            name='raid_type',
-            description='Which raid do you want to delete a time for?',
-            type=interactions.OptionType.STRING,
-            choices=raid_choices,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='scale',
-            description='Enter the scale of the raid',
-            type=interactions.OptionType.INTEGER,
-            choices=scale_choices,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='runners',
-            description='Enter the names of the runner(s) (comma separated)',
-            type=interactions.OptionType.STRING,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='minutes',
-            description='Enter the minutes in the time you wish to delete',
-            type=interactions.OptionType.INTEGER,
-            min_value=0,
-            max_value=59,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='seconds',
-            description='Enter the seconds in the time you wish to delete',
-            type=interactions.OptionType.INTEGER,
-            min_value=0,
-            max_value=59,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='milliseconds',
-            description='Enter the milliseconds in the time you wish to delete',  # noqa
-            type=interactions.OptionType.INTEGER,
-            min_value=0,
-            max_value=8,
-            required=True
-        )
+        {
+            "name": "raid_type",
+            "description": "Which raid do you want to delete a time for?",
+            "type": interactions.OptionType.STRING,
+            "choices": raid_choices,
+            "required": True
+        },
+        {
+            "name": "scale",
+            "description": "Enter the scale of the raid",
+            "type": interactions.OptionType.INTEGER,
+            "choices": scale_choices,
+            "required": True
+        },
+        {
+            "name": "runners",
+            "description": (
+                "Enter the names of the runner(s) (comma separated)"
+            ),
+            "type": interactions.OptionType.STRING,
+            "required": True
+        },
+        {
+            "name": "minutes",
+            "description": "Enter the minutes in the time you wish to delete",
+            "type": interactions.OptionType.INTEGER,
+            "min_value": 0,
+            "max_value": 59,
+            "required": True
+        },
+        {
+            "name": "seconds",
+            "description": "Enter the seconds in the time you wish to delete",
+            "type": interactions.OptionType.INTEGER,
+            "min_value": 0,
+            "max_value": 59,
+            "required": True
+        },
+        {
+            "name": "milliseconds",
+            "description": (
+                "Enter the milliseconds in the time you wish to delete"
+            ),
+            "type": interactions.OptionType.INTEGER,
+            "min_value": 0,
+            "max_value": 8,
+            "required": True
+        }
     ]
 )
 async def delete_run(
@@ -294,17 +303,6 @@ async def delete_run(
     player_group_id = get_player_group_id(player_ids)
 
     with get_session() as session:
-        # # Find the players in the database.
-        # existing_runners = session.query(Player).filter(
-        #     Player.discord_id.in_(formatted_runners_list)
-        # ).all()
-
-        # # Format the runners for the database query, and for adding it later
-        # # if we do not find an identical run.
-        # runner_db_id_string = ','.join(
-        #     [str(runner.id) for runner in existing_runners]
-        # )
-
         speedruntime_found = session.query(SpeedrunTime).filter(
             RaidType.identifier == raid_type,
             SpeedrunTime.raid_type_id == RaidType.id,
@@ -322,11 +320,20 @@ async def delete_run(
         if speedruntime_found:
             # Look for a CM time to delete.
             if raid_type == 'Chambers of Xeric: Challenge Mode':
-                cm_raid_pb = session.query(CmRaidPbTime).filter(
-                    CmRaidPbTime.speedrun_time_id == speedruntime_found.id
+                cm_raid_pb = session.query(CmRaidTime).filter(
+                    CmRaidTime.speedrun_time_id == speedruntime_found.id
                 ).first()
                 if cm_raid_pb:
                     session.delete(cm_raid_pb)
+                    session.flush()
+
+            if raid_type == 'Theatre of Blood':
+                tob_raid_pb = session.query(TobRaidTime).filter(
+                    TobRaidTime.speedrun_time_id == speedruntime_found.id
+                ).first()
+                if tob_raid_pb:
+                    session.delete(tob_raid_pb)
+                    session.flush()
 
             session.delete(speedruntime_found)
             session.commit()
@@ -351,20 +358,22 @@ async def delete_run(
     name='leaderboards',
     description='Get the leaderboards for a raid',
     options=[
-        interactions.SlashCommandOption(
-            name='raid_type',
-            description='Which raid do you want to see the leaderboards for?',
-            type=interactions.OptionType.STRING,
-            choices=raid_choices,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='scale',
-            description='Enter the scale of the raid',
-            type=interactions.OptionType.INTEGER,
-            choices=scale_choices,
-            required=True
-        )
+        {
+            "name": "raid_type",
+            "description": (
+                "Which raid do you want to see the leaderboards for?"
+            ),
+            "type": interactions.OptionType.STRING,
+            "choices": raid_choices,
+            "required": True
+        },
+        {
+            "name": "scale",
+            "description": "Enter the scale of the raid",
+            "type": interactions.OptionType.INTEGER,
+            "choices": scale_choices,
+            "required": True
+        }
     ]
 )
 async def leaderboards(
@@ -392,26 +401,28 @@ async def leaderboards(
     name='pb',
     description='Display a player\'s personal best for a raid',
     options=[
-        interactions.SlashCommandOption(
-            name='raid_type',
-            description='Which raid do you want to see the leaderboards for?',
-            type=interactions.OptionType.STRING,
-            choices=raid_choices,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='scale',
-            description='Enter the scale of the raid',
-            type=interactions.OptionType.INTEGER,
-            choices=scale_choices,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='runner',
-            description='Enter the name of the runner',
-            type=interactions.OptionType.USER,
-            required=True
-        )
+        {
+            "name": "raid_type",
+            "description": (
+                "Which raid do you want to see the leaderboards for?"
+            ),
+            "type": interactions.OptionType.STRING,
+            "choices": raid_choices,
+            "required": True
+        },
+        {
+            "name": "scale",
+            "description": "Enter the scale of the raid",
+            "type": interactions.OptionType.INTEGER,
+            "choices": scale_choices,
+            "required": True
+        },
+        {
+            "name": "runner",
+            "description": "Enter the name of the runner",
+            "type": interactions.OptionType.USER,
+            "required": True
+        }
     ]
 )
 async def pb(
@@ -456,8 +467,8 @@ async def pb(
 
         # Check if the run is a CM raid.
         if raid_type.identifier == 'Chambers of Xeric: Challenge Mode':
-            cm_raid_pb = session.query(CmRaidPbTime).filter(
-                CmRaidPbTime.speedrun_time_id == speedrun_time.id
+            cm_raid_pb = session.query(CmRaidTime).filter(
+                CmRaidTime.speedrun_time_id == speedrun_time.id
             ).first()
             if cm_raid_pb:
                 # Display the run in an embed.
@@ -485,19 +496,21 @@ async def pb(
     name='pb_cm_rooms',
     description='Display a player\'s personal best for every room in a CM raid',  # noqa
     options=[
-        interactions.SlashCommandOption(
-            name='scale',
-            description='Enter the scale of the raid',
-            type=interactions.OptionType.INTEGER,
-            choices=scale_choices,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='runner',
-            description='Enter the names of the runner(s) (comma separated)',
-            type=interactions.OptionType.USER,
-            required=True
-        )
+        {
+            "name": "scale",
+            "description": "Enter the scale of the raid",
+            "type": interactions.OptionType.INTEGER,
+            "choices": scale_choices,
+            "required": True
+        },
+        {
+            "name": "runner",
+            "description": (
+                "Enter the names of the runner(s) (comma separated)"
+            ),
+            "type": interactions.OptionType.USER,
+            "required": True
+        }
     ]
 )
 async def pb_cm_rooms(
@@ -517,9 +530,9 @@ async def pb_cm_rooms(
         ).first()
 
         # Find the room pbs.
-        room_pbs = session.query(CmIndividualRoomPbTime).filter(
-            CmIndividualRoomPbTime.player_id == player.id,
-            CmIndividualRoomPbTime.scale_id == scale.id,
+        room_pbs = session.query(CmRoomTime).filter(
+            CmRoomTime.player_id == player.id,
+            CmRoomTime.scale_id == scale.id,
         ).first()
 
         if not room_pbs:
@@ -531,7 +544,63 @@ async def pb_cm_rooms(
             await ctx.send(embed=embed)
             return
 
-        embed = pb_cm_individual_room_to_embed(room_pbs)
+        embed = pb_cm_room_to_embed(room_pbs)
+        await ctx.send(embed=embed)
+
+
+@interactions.slash_command(
+    name='pb_tob_rooms',
+    description='Display a player\'s personal best for every room in a TOB raid',  # noqa
+    options=[
+        {
+            "name": "scale",
+            "description": "Enter the scale of the raid",
+            "type": interactions.OptionType.INTEGER,
+            "choices": scale_choices,
+            "required": True
+        },
+        {
+            "name": "runner",
+            "description": (
+                "Enter the names of the runner(s) (comma separated)"
+            ),
+            "type": interactions.OptionType.USER,
+            "required": True
+        }
+    ]
+)
+async def pb_tob_rooms(
+    ctx: interactions.SlashContext,
+    scale: int,
+    runner: interactions.Member
+):
+    with get_session() as session:
+        # Find the player.
+        player = session.query(Player).filter(
+            Player.discord_id == str(runner.id)
+        ).first()
+
+        # Find the scale.
+        scale = session.query(Scale).filter(
+            Scale.value == scale
+        ).first()
+
+        # Find the room pbs.
+        room_pbs = session.query(TobRoomTime).filter(
+            TobRoomTime.player_id == player.id,
+            TobRoomTime.scale_id == scale.id,
+        ).first()
+
+        if not room_pbs:
+            message = (
+                f'{runner.display_name} does not have any room personal '
+                'bests.'
+            )
+            embed = error_to_embed('No room PBs found', message)
+            await ctx.send(embed=embed)
+            return
+
+        embed = pb_tob_room_to_embed(room_pbs)
         await ctx.send(embed=embed)
 
 
@@ -539,18 +608,20 @@ async def pb_cm_rooms(
     name='submit_cm_from_clipboard',
     description='Use the cox analytics plugin to paste in your room times',
     options=[
-        interactions.SlashCommandOption(
-            name='runners',
-            description='Enter the names of the runner(s) (comma separated)',
-            type=interactions.OptionType.STRING,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='room_times',
-            description='Paste in your room times',
-            type=interactions.OptionType.STRING,
-            required=True
-        )
+        {
+            "name": "runners",
+            "description": (
+                "Enter the names of the runner(s) (comma separated)"
+            ),
+            "type": interactions.OptionType.STRING,
+            "required": True
+        },
+        {
+            "name": "room_times",
+            "description": "Paste in your room times",
+            "type": interactions.OptionType.STRING,
+            "required": True
+        }
     ]
 )
 async def submit_cm_from_clipboard(
@@ -560,21 +631,23 @@ async def submit_cm_from_clipboard(
 ):
     # Split the string into a list before every capital letter.
     capital_letters_at_start = r'[A-Z][^A-Z]*'
-    room_times = re.findall(capital_letters_at_start, room_times)
+    room_times_list = re.findall(capital_letters_at_start, room_times)
 
     # Remove the last 6 elements as they are not useful, and remove elements
     # that do not contain a colon.
-    room_times = [x.lower() for x in room_times[:-6] if ':' in x]
+    clean_room_times = [x.lower() for x in room_times_list[:-6] if ':' in x]
 
     # Strip unneeded characters.
-    room_times = [x.replace(' ', '').replace('|', '') for x in room_times]
+    clean_room_times = [
+        x.replace(' ', '').replace('|', '') for x in clean_room_times
+    ]
 
     # Split each element into a key value pair, e.g. {'tekton': '1:04.8', ...}
-    room_times = {
-        x.split(':', 1)[0]: x.split(':', 1)[1] for x in room_times
+    room_times_dict = {
+        x.split(':', 1)[0]: x.split(':', 1)[1] for x in clean_room_times
     }
 
-    if not is_valid_cm_paste(room_times):
+    if not is_valid_cm_paste(room_times_dict):
         message = ('The room times submitted are not formatted correctly.')
         embed = error_to_embed('Submission', message)
         await ctx.send(embed=embed)
@@ -582,26 +655,36 @@ async def submit_cm_from_clipboard(
 
     # Grab the scale from the string and then pop it so we do not run our time
     # function on it.
-    scale = int(room_times.pop('size'))
+    scale = int(room_times_dict.pop('size'))
 
     # Convert the times to ticks.
-    for room in room_times:
-        room_times[room] = time_string_to_ticks(room_times[room])
+    for room in room_times_dict:
+        room_times_dict[room] = time_string_to_ticks(room_times_dict[room])
 
     # Store the total raid time and remove it from the dictionary to avoid the
     # get and set attr running on it.
-    total_raid_time = room_times.pop('completed')
+    total_raid_time = room_times_dict.pop('completed')
 
     with get_session() as session:
-        # Check if the scale exists in the database.
-        cm_raid_scale = session.query(Scale).filter(
-            Scale.value == scale
+        # Get the CoX: CM raid type.
+        raid_type = session.query(RaidType).filter(
+            RaidType.identifier == 'Chambers of Xeric: Challenge Mode'
         ).first()
-        if not cm_raid_scale:
-            await ctx.send('Invalid CM scale submitted.')
+        if not raid_type:
+            message = 'No raid type found.'
+            embed = error_to_embed('Submission', message)
+            await ctx.send(embed=embed)
             return
 
-        print('scale:', cm_raid_scale.value)
+        # Check if the scale exists in the database.
+        raid_scale = session.query(Scale).filter(
+            Scale.value == scale
+        ).first()
+        if not raid_scale:
+            message = 'Invalid CM scale submitted.'
+            embed = error_to_embed('Submission', message)
+            await ctx.send(embed=embed)
+            return
 
         print(f'Room times submitted: {room_times}')
 
@@ -615,140 +698,92 @@ async def submit_cm_from_clipboard(
         player_ids = [player.id for player in players]
         player_group_id = get_player_group_id(player_ids)
 
-        # Get the CoX: CM raid type.
-        cm_raid_type = session.query(RaidType).filter(
-            RaidType.identifier == 'Chambers of Xeric: Challenge Mode'
-        ).first()
-
         # Add to speedrun_time table.
         # Check if this exact run has already been submitted.
         speedrun_time = session.query(SpeedrunTime).filter(
-            SpeedrunTime.raid_type_id == cm_raid_type.id,
-            SpeedrunTime.scale_id == cm_raid_scale.id,
+            SpeedrunTime.raid_type_id == raid_type.id,
+            SpeedrunTime.scale_id == raid_scale.id,
             SpeedrunTime.player_group_id == player_group_id,
             SpeedrunTime.time == total_raid_time
         ).first()
         if not speedrun_time:
             # Save the run to the database.
             speedrun_time = SpeedrunTime(
-                raid_type_id=cm_raid_type.id,
-                scale_id=cm_raid_scale.id,
+                raid_type_id=raid_type.id,
+                scale_id=raid_scale.id,
                 player_group_id=player_group_id,
                 time=total_raid_time
             )
             session.add(speedrun_time)
             session.flush()
 
-        # Track the updated room times so we can display it in the embed.
-        updated_times = []
-        room_before_after = ()
-
         # Update individual room time PBs per player.
+        player_times = {}
         for runner in players:
             # Get the player's best room times.
-            best_times = session.query(CmIndividualRoomPbTime).filter(
-                CmIndividualRoomPbTime.player_id == runner.id,
-                CmIndividualRoomPbTime.scale_id == cm_raid_scale.id
+            best_times = session.query(CmRoomTime).filter(
+                CmRoomTime.player_id == runner.id,
+                CmRoomTime.scale_id == raid_scale.id
             ).first()
 
             if not best_times:
-                new_run = CmIndividualRoomPbTime(
+                new_run = CmRoomTime(
                     player_id=runner.id,
-                    scale_id=cm_raid_scale.id,
-                    **room_times
+                    scale_id=raid_scale.id,
+                    **room_times_dict
                 )
                 session.add(new_run)
                 session.flush()
                 continue
 
-            # Update the player's best room times if they are faster.
-            for room in room_times:
-                if not getattr(best_times, room):
-                    setattr(best_times, room, room_times[room])
-                    updated_times.append(
-                        (runner, room, None, room_times[room])
-                    )
-                    session.flush()
-                    continue
+            before_after = best_times.update_room_times(room_times_dict)
+            session.commit()
 
-                if room_times[room] < getattr(best_times, room):
-                    room_before_after = (
-                        runner,
-                        room,
-                        getattr(best_times, room),
-                        room_times[room]
-                    )
-                    setattr(best_times, room, room_times[room])
-                    updated_times.append(room_before_after)
-                    session.flush()
+            if len(before_after) > 0:
+                player_times[runner] = before_after
 
-        if updated_times:
+        if len(player_times) > 0:
             message = (
                 'The room times submitted have been updated for the following '
                 'rooms:\n'
             )
 
-            for runner, room, before, after in updated_times:
-                # If there was no time before, we can't show a before and
-                # after.
-                if before is None:
+            for runner, before_after in player_times.items():
+                for room, (before, after) in before_after.items():
+                    # If there was no time before, we can't show a before and
+                    # after.
+                    if before is None:
+                        message += (
+                            f'### {runner.name}: {room} - '
+                            f'`{ticks_to_time_string(after)}`\n'
+                        )
+                        continue
+
                     message += (
                         f'### {runner.name}: {room} - '
-                        f'`{ticks_to_time_string(after)}`\n'
+                        f'`{ticks_to_time_string(before)}` '
+                        f'-> `{ticks_to_time_string(after)}`\n'
                     )
-                    continue
-
-                message += (
-                    f'### {runner.name}: {room} - '
-                    f'`{ticks_to_time_string(before)}` '
-                    f'-> `{ticks_to_time_string(after)}`\n'
-                )
 
             embed = confirmation_to_embed('New room PB(s)', message)
             await ctx.send(embed=embed)
 
-        # If a run doesn't exist, just add it.
-        run_exists = session.query(CmRaidPbTime).filter(
-            CmRaidPbTime.speedrun_time_id == speedrun_time.id
+        # Check if the run is a PB.
+        better_run_exists = session.query(CmRaidTime).filter(
+            CmRaidTime.speedrun_time_id == speedrun_time.id,
+            CmRaidTime.completed <= total_raid_time
         ).first()
-        if not run_exists:
-            new_run = CmRaidPbTime(
+        if not better_run_exists:
+            new_run = CmRaidTime(
                 speedrun_time_id=speedrun_time.id,
                 completed=total_raid_time,
-                **room_times
+                **room_times_dict
             )
             session.add(new_run)
             session.commit()
-
             message = (
                 f'Submitted `{ticks_to_time_string(total_raid_time)}` in CoX: '
-                f'CM with {cm_raid_scale.identifier} scale.'
-            )
-            embed = confirmation_to_embed('Submission', message)
-            await ctx.send(embed=embed)
-
-            # Display the run in an embed.
-            embed = pb_cm_raid_to_embed(new_run)
-            await ctx.send(embed=embed)
-
-            return
-
-        # Check if the run is a PB.
-        better_run_exists = session.query(CmRaidPbTime).filter(
-            CmRaidPbTime.speedrun_time_id == speedrun_time.id,
-            CmRaidPbTime.completed <= total_raid_time
-        ).first()
-        if not better_run_exists:
-            new_run = CmRaidPbTime(
-                speedrun_time_id=speedrun_time.id,
-                completed=total_raid_time,
-                **room_times
-            )
-            session.add(new_run)
-            session.flush()
-            message = (
-                f'Submitted `{ticks_to_time_string(total_raid_time)}` in CoX: '
-                f'CM with {cm_raid_scale.identifier} scale.'
+                f'CM with {raid_scale.identifier} scale.'
             )
             embed = confirmation_to_embed('Submission', message)
             await ctx.send(embed=embed)
@@ -772,26 +807,26 @@ async def submit_cm_from_clipboard(
     name='delete_cm_room_pb',
     description='Delete a player\'s personal best for a room in a CM raid',
     options=[
-        interactions.SlashCommandOption(
-            name='scale',
-            description='Enter the scale of the raid',
-            type=interactions.OptionType.INTEGER,
-            choices=scale_choices,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='runner',
-            description='Enter the name of the runner',
-            type=interactions.OptionType.USER,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='room',
-            description='Enter the room you want to delete the PB for',
-            type=interactions.OptionType.STRING,
-            choices=cm_rooms,
-            required=True
-        )
+        {
+            "name": "scale",
+            "description": "Enter the scale of the raid",
+            "type": interactions.OptionType.INTEGER,
+            "choices": scale_choices,
+            "required": True
+        },
+        {
+            "name": "runner",
+            "description": "Enter the name of the runner",
+            "type": interactions.OptionType.USER,
+            "required": True
+        },
+        {
+            "name": "room",
+            "description": "Enter the room you want to delete the PB for",
+            "type": interactions.OptionType.STRING,
+            "choices": cm_rooms,
+            "required": True
+        }
     ]
 )
 async def delete_cm_room_pb(
@@ -813,9 +848,9 @@ async def delete_cm_room_pb(
         ).first()
 
         # Find the player's personal best rooms.
-        room_pb = session.query(CmIndividualRoomPbTime).filter(
-            CmIndividualRoomPbTime.scale_id == scale.id,
-            CmIndividualRoomPbTime.player_id == player.id
+        room_pb = session.query(CmRoomTime).filter(
+            CmRoomTime.scale_id == scale.id,
+            CmRoomTime.player_id == player.id
         ).first()
 
         if not room_pb:
@@ -842,19 +877,19 @@ async def delete_cm_room_pb(
     name='delete_all_cm_room_pb',
     description='Delete all room PBs for a player in a CM raid',
     options=[
-        interactions.SlashCommandOption(
-            name='scale',
-            description='Enter the scale of the raid',
-            type=interactions.OptionType.INTEGER,
-            choices=scale_choices,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='runner',
-            description='Enter the name of the runner',
-            type=interactions.OptionType.USER,
-            required=True
-        )
+        {
+            "name": "scale",
+            "description": "Enter the scale of the raid",
+            "type": interactions.OptionType.INTEGER,
+            "choices": scale_choices,
+            "required": True
+        },
+        {
+            "name": "runner",
+            "description": "Enter the name of the runner",
+            "type": interactions.OptionType.USER,
+            "required": True
+        }
     ]
 )
 async def delete_all_cm_room_pb(
@@ -875,9 +910,9 @@ async def delete_all_cm_room_pb(
         ).first()
 
         # Find the player's personal best rooms.
-        room_pbs = session.query(CmIndividualRoomPbTime).filter(
-            CmIndividualRoomPbTime.scale_id == scale.id,
-            CmIndividualRoomPbTime.player_id == player.id
+        room_pbs = session.query(CmRoomTime).filter(
+            CmRoomTime.scale_id == scale.id,
+            CmRoomTime.player_id == player.id
         ).first()
 
         if not room_pbs:
@@ -904,18 +939,20 @@ async def delete_all_cm_room_pb(
     name='submit_tob_from_csv',
     description='Submit a ToB run from a CSV file',
     options=[
-        interactions.SlashCommandOption(
-            name='runners',
-            description='Enter the names of the runner(s) (comma separated)',
-            type=interactions.OptionType.STRING,
-            required=True
-        ),
-        interactions.SlashCommandOption(
-            name='file',
-            description='Submit a raid from a CSV file',
-            type=interactions.OptionType.ATTACHMENT,
-            required=True
-        )
+        {
+            "name": "runners",
+            "description": (
+                "Enter the names of the runner(s) (comma separated)"
+            ),
+            "type": interactions.OptionType.STRING,
+            "required": True
+        },
+        {
+            "name": "file",
+            "description": "Submit a raid from a CSV file",
+            "type": interactions.OptionType.ATTACHMENT,
+            "required": True
+        }
     ]
 )
 async def submit_tob_from_csv(
@@ -924,186 +961,332 @@ async def submit_tob_from_csv(
     file: interactions.Attachment
 ):
     tobdata = await open_attachment(file)
-    scale = 0
-    total_time = 0
-    verzik_flag = False
-    verzik_p1_flag = True
-    verzik_redcrabs_flag = True
-    # Array for all relevant tob times (in order)
-    tob_times = [0] * 22
+    scale = None
+
+    csv_ids = {
+        '1': 'scale',
+        '13': 'maiden_70',
+        '14': 'maiden_50',
+        '15': 'maiden_30',
+        '17': 'maiden',
+        '23': 'bloat',
+        '35': 'nylocas_waves',
+        '36': 'nylocas_cleanup',
+        '45': 'nylocas',
+        '52': 'sotetseg_maze1_start',
+        '53': 'sotetseg_maze1_end',
+        '54': 'sotetseg_maze2_start',
+        '55': 'sotetseg_maze2_end',
+        '57': 'sotetseg',
+        '63': 'xarpus_screech',
+        '65': 'xarpus',
+        '73': 'verzik_p1',
+        '80': 'verzik_reds',
+        '74': 'verzik_p2',
+        '76': 'verzik'
+    }
+
+    tob_times = {}
 
     for line in tobdata.strip().splitlines():
         parts = line.split(',')
-        if len(parts) > 3:
-            match parts[3]:
-                # Scale
-                case '1':
-                    players =[x for x in parts[-5:]  if x]
-                    scale=len(players)
-                    print(f"Scale: {scale}")
-                    formatted_runners_list = await validate_runners(ctx, runners, scale)
-                    if not formatted_runners_list:
-                        break
-                 ########## Maiden ##########
-                # Maiden 70s
-                case '13':
-                    tob_times[0] = (int)(parts[4])
-                    print("Maiden 70s: " + parts[4])
 
-                # Maiden 50s
-                case '14':
-                    tob_times[1] = (int)(parts[4])
-                    print("Maiden 50s: " + parts[4])
+        if len(parts) < 3:
+            continue
 
-                # Maiden 30s
-                case '15':
-                    tob_times[2] = (int)(parts[4])
-                    print("Maiden 30s: " + parts[4])
+        if parts[3] not in csv_ids:
+            continue
 
-                # Maiden total time
-                case '17':
-                    tob_times[3] = (int)(parts[4])
-                    total_time += (int)(parts[4])
-                    print("Maiden total time: " + parts[4] + "\n----------")
+        room_type = csv_ids.get(parts[3])
 
-                ########## Bloat ##########
-                case '23':
-                    tob_times[4] = (int)(parts[4])
-                    total_time += (int)(parts[4])
-                    print("Bloat: " + parts[4] + "\n----------")
+        if room_type == 'scale':
+            players = [x for x in parts[-5:] if x]
+            scale = len(players)
+            print(f"Scale: {scale}")
+            formatted_runners_list = await validate_runners(
+                ctx, runners, scale
+            )
+            if not formatted_runners_list:
+                break
+            continue
 
-                ########## Nylocas ##########
-                # Nylo waves
-                case '35':
-                    tob_times[5] = (int)(parts[4])
-                    print("Nylo waves: " + parts[4])
-                # Nylo cleanup
-                case '36':
-                    tob_times[6] = (int)(parts[4])
-                    print(f"Nylo cleanup: {tob_times[6]}({tob_times[6] - tob_times[5]})")
+        room_time = int(parts[4])
+        tob_times[room_type] = room_time
 
-                    # Nylo boss spawn
-                    tob_times[7] = tob_times[6] + 16
-                    print(f"Nylo boss spawn: {tob_times[7]}")
+    # Boss spawn is always 16 ticks after cleanup ends.
+    tob_times['nylocas_bossspawn'] = tob_times['nylocas_cleanup'] + 16
 
-                # Nylo total time
-                case '45':
-                    tob_times[8] = (int)(parts[4])
-                    total_time += (int)(parts[4])
-                    print("Nylo total time: " + parts[4] + "\n----------")
+    # Verzik p3 doesn't have an ID, so we calculate it manually.
+    tob_times['verzik_p3'] = tob_times['verzik'] - tob_times['verzik_p2']
 
-                ########## Sotetseg ##########
-                # Sote Maze 1 start
-                case '52':
-                    tob_times[9] = (int)(parts[4])
-                # Sote Maze 1 end
-                case '53':
-                    tob_times[10] = (int)(parts[4])
-                    print(f"Sote 1st maze: {tob_times[9]}({tob_times[10] - tob_times[9]})")
-                # Sote Maze 2 start
-                case '54':
-                    tob_times[11] = (int)(parts[4])
-                # Sote Maze 2 end
-                case '55':
-                    tob_times[12] = (int)(parts[4])
-                    print(f"Sote 2nd maze: {tob_times[11]}({tob_times[12] - tob_times[11]})")
-                # Sote total time
-                case '57':
-                    tob_times[13] = (int)(parts[4])
-                    total_time += (int)(parts[4])
-                    print(f"Sotesteg total time: {tob_times[13]}" + "\n----------")
-
-                ########## Xarpus ##########
-                # Xarpus screech
-                case '63':
-                    tob_times[14] = (int)(parts[4])
-                    print(f"Xarpus screech: {tob_times[14]}")
-                # Xarpus total time
-                case '65':
-                    tob_times[15] = (int)(parts[4])
-                    total_time += (int)(parts[4])
-                    print(f"Xarpus total time: {tob_times[15]}" + "\n----------")
-
-                ########## Verzik ##########
-                # Verzik p1
-                case '73':
-                    if verzik_p1_flag == True:
-                        tob_times[16] = (int)(parts[4])
-                        print(f"Verzik p1: {tob_times[16]} ")
-                        verzik_p1_flag = False
-                # Verzik red crabs
-                case '80':
-                    if verzik_redcrabs_flag == True:
-                        tob_times[17] = (int)(parts[4])
-                        print(f"Verzik red crabs: {tob_times[17]}")
-                        verzik_redcrabs_flag = False
-                # Verzik p2
-                case '74':
-                    tob_times[18] = (int)(parts[4])
-                    print(f"Verzik p2: {tob_times[18]}({tob_times[18] - tob_times[16]}) ")
-                # Verzik total time
-                case '76':
-                    if verzik_flag == True:
-                        tob_times[20] = (int)(parts[4])
-                        total_time += (int)(parts[4])
-                        tob_times[19] = tob_times[20] - tob_times[18]
-                        print(f"Verzik p3: {tob_times[19]}"
-                              f"\nVerzik total time: {tob_times[20]}")
-
-                    verzik_flag = True
-
-    print("total ticks: " + (str)(total_time) + "\ntotal time: " + (str)((int)(total_time * 0.6 / 60)) + ':' +
-          (str)(total_time * 0.6 % (60 * ((int)(total_time * 0.6 / 60)))))
-    tob_times[21] = total_time
-    formatted_runners_list = await validate_runners(ctx, runners, scale)
-    if not formatted_runners_list:
-        return
+    # Calculate the total time.
+    tob_times['completed'] = (
+        tob_times['maiden'] +
+        tob_times['bloat'] +
+        tob_times['nylocas'] +
+        tob_times['sotetseg'] +
+        tob_times['xarpus'] +
+        tob_times['verzik']
+    )
 
     with get_session() as session:
-        raid_type = session.query(RaidType).filter(RaidType.identifier == 'Theatre of Blood').first()
-        scale_type = session.query(Scale).filter(Scale.value == scale).first()
+        raid_type = session.query(RaidType).filter(
+            RaidType.identifier == 'Theatre of Blood'
+        ).first()
+        if not raid_type:
+            message = 'No raid type found.'
+            embed = error_to_embed('Submission', message)
+            await ctx.send(embed=embed)
+            return
+
+        scale_type = session.query(Scale).filter(
+            Scale.value == scale
+        ).first()
+        if not scale_type:
+            message = 'Invalid scale submitted.'
+            embed = error_to_embed('Submission', message)
+            await ctx.send(embed=embed)
+            return
 
         # Find the players in the database.
         players = get_players_from_discord_ids(formatted_runners_list)
         player_ids = [player.id for player in players]
         player_group_id = get_player_group_id(player_ids)
 
-        speedrun_time = SpeedrunTime(
-            raid_type_id=raid_type.id,
-            scale_id=scale_type.id,
-            time=total_time,
-            player_group_id=player_group_id
-        )
+        # Add to speedrun_time table.
+        # Check if this exact run has already been submitted.
+        speedrun_time = session.query(SpeedrunTime).filter(
+            SpeedrunTime.raid_type_id == raid_type.id,
+            SpeedrunTime.scale_id == scale_type.id,
+            SpeedrunTime.player_group_id == player_group_id,
+            SpeedrunTime.time == tob_times['completed']
+        ).first()
+        if not speedrun_time:
+            # Save the run to the database.
+            speedrun_time = SpeedrunTime(
+                raid_type_id=raid_type.id,
+                scale_id=scale_type.id,
+                player_group_id=player_group_id,
+                time=tob_times['completed']
+            )
+            session.add(speedrun_time)
+            session.flush()
 
-        session.add(speedrun_time)
-        session.flush()
-        insert_tobtimes = TobRaidTime.__table__.insert().values(
-            speedrun_time_id=speedrun_time.id,
-            maiden_70=tob_times[0],
-            maiden_50=tob_times[1],
-            maiden_30=tob_times[2],
-            maiden=tob_times[3],
-            bloat=tob_times[4],
-            nylocas_waves=tob_times[5],
-            nylocas_cleanup=tob_times[6],
-            nylocas_bossspawn=tob_times[7],
-            nylocas=tob_times[8],
-            sotetseg_maze1_start=tob_times[9],
-            sotetseg_maze1_end=tob_times[10],
-            sotetseg_maze2_start=tob_times[11],
-            sotetseg_maze2_end=tob_times[12],
-            sotetseg=tob_times[13],
-            xarpus_screech=tob_times[14],
-            xarpus=tob_times[15],
-            verzik_p1=tob_times[16],
-            verzik_reds=tob_times[17],
-            verzik_p2=tob_times[18],
-            verzik_p3=tob_times[19],
-            verzik=tob_times[20],
-            completed=tob_times[21]
-        )
-        session.execute(insert_tobtimes)
+        # Update individual room time PBs per player.
+        player_times = {}
+        for runner in players:
+            # Get the player's best room times.
+            best_times = session.query(TobRoomTime).filter(
+                TobRoomTime.player_id == runner.id,
+                TobRoomTime.scale_id == scale_type.id
+            ).first()
+
+            if not best_times:
+                new_run = TobRoomTime(
+                    player_id=runner.id,
+                    scale_id=scale_type.id,
+                    **tob_times
+                )
+                session.add(new_run)
+                session.flush()
+                continue
+
+            before_after = best_times.update_room_times(tob_times)
+            session.commit()
+
+            if len(before_after) > 0:
+                player_times[runner] = before_after
+
+        if len(player_times) > 0:
+            message = (
+                'The room times submitted have been updated for the following '
+                'rooms:\n'
+            )
+
+            for runner, before_after in player_times.items():
+                for room, (before, after) in before_after.items():
+                    # If there was no time before, we can't show a before and
+                    # after.
+                    if before is None:
+                        message += (
+                            f'### {runner.name}: {room} - '
+                            f'`{ticks_to_time_string(after)}`\n'
+                        )
+                        continue
+
+                    message += (
+                        f'### {runner.name}: {room} - '
+                        f'`{ticks_to_time_string(before)}` '
+                        f'-> `{ticks_to_time_string(after)}`\n'
+                    )
+
+            embed = confirmation_to_embed('New room PB(s)', message)
+            await ctx.send(embed=embed)
+
+        # Check if the run is a PB.
+        better_run_exists = session.query(TobRaidTime).filter(
+            TobRaidTime.speedrun_time_id == speedrun_time.id,
+            TobRaidTime.completed <= tob_times['completed']
+        ).first()
+        if not better_run_exists:
+            new_run = TobRaidTime(
+                speedrun_time_id=speedrun_time.id,
+                **tob_times
+            )
+            session.add(new_run)
+            session.commit()
+            message = (
+                f'Submitted `{ticks_to_time_string(tob_times['completed'])}` '
+                f'in ToB with {scale_type.identifier} scale.'
+            )
+            embed = confirmation_to_embed('Submission', message)
+            await ctx.send(embed=embed)
+
+            # Display the run in an embed.
+            embed = pb_tob_raid_to_embed(new_run)
+            await ctx.send(embed=embed)
+
+        else:
+            message = (
+                'The run submitted is not a personal best.\n'
+                'Any room times that were faster have still been updated.'
+            )
+            embed = confirmation_to_embed('Submission', message)
+            await ctx.send(embed=embed)
+
         session.commit()
+
+
+@interactions.slash_command(
+    name='delete_tob_room_pb',
+    description='Delete a player\'s personal best for a room in a ToB raid',
+    options=[
+        {
+            "name": "scale",
+            "description": "Enter the scale of the raid",
+            "type": interactions.OptionType.INTEGER,
+            "choices": scale_choices,
+            "required": True
+        },
+        {
+            "name": "runner",
+            "description": "Enter the name of the runner",
+            "type": interactions.OptionType.USER,
+            "required": True
+        },
+        {
+            "name": "room",
+            "description": "Enter the room you want to delete the PB for",
+            "type": interactions.OptionType.STRING,
+            "choices": cm_rooms,
+            "required": True
+        }
+    ]
+)
+async def delete_tob_room_pb(
+    ctx: interactions.SlashContext,
+    scale: int,
+    runner: interactions.Member,
+    room: str
+):
+
+    with get_session() as session:
+        # Find the scale.
+        scale = session.query(Scale).filter(
+            Scale.value == scale
+        ).first()
+
+        # Find the player.
+        player = session.query(Player).filter(
+            Player.discord_id == str(runner.id)
+        ).first()
+
+        # Find the player's personal best rooms.
+        room_pb = session.query(TobRoomTime).filter(
+            TobRoomTime.scale_id == scale.id,
+            TobRoomTime.player_id == player.id
+        ).first()
+
+        if not room_pb:
+            message = (
+                'The player does not have a personal best for this room.'
+            )
+            embed = error_to_embed('Deletion', message)
+            await ctx.send(embed=embed)
+            return
+
+        # Set the room time to None.
+        setattr(room_pb, room, None)
+        session.commit()
+
+        embed = confirmation_to_embed(
+            'Deletion',
+            f'PB for {room} deleted for <@{runner.id}> '
+            f'({scale.identifier} scale).'
+        )
+        await ctx.send(embed=embed)
+
+
+@interactions.slash_command(
+    name='delete_all_tob_room_pb',
+    description='Delete all room PBs for a player in a ToB raid',
+    options=[
+        {
+            "name": "scale",
+            "description": "Enter the scale of the raid",
+            "type": interactions.OptionType.INTEGER,
+            "choices": scale_choices,
+            "required": True
+        },
+        {
+            "name": "runner",
+            "description": "Enter the name of the runner",
+            "type": interactions.OptionType.USER,
+            "required": True
+        }
+    ]
+)
+async def delete_all_tob_room_pb(
+    ctx: interactions.SlashContext,
+    scale: int,
+    runner: interactions.Member
+):
+
+    with get_session() as session:
+        # Find the scale.
+        scale = session.query(Scale).filter(
+            Scale.value == scale
+        ).first()
+
+        # Find the player.
+        player = session.query(Player).filter(
+            Player.discord_id == str(runner.id)
+        ).first()
+
+        # Find the player's personal best rooms.
+        room_pbs = session.query(TobRoomTime).filter(
+            TobRoomTime.scale_id == scale.id,
+            TobRoomTime.player_id == player.id
+        ).first()
+
+        if not room_pbs:
+            message = (
+                'The player does not have any personal bests for this scale.'
+            )
+            embed = error_to_embed('Deletion', message)
+            await ctx.send(embed=embed)
+            return
+
+        # Delete the room times.
+        session.delete(room_pbs)
+        session.commit()
+
+        embed = confirmation_to_embed(
+            'Deletion',
+            f'All room times deleted for <@{runner.id}> '
+            f'({scale.identifier} scale).'
+        )
+        await ctx.send(embed=embed)
 
 
 bot.start()

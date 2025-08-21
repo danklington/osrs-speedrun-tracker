@@ -1,24 +1,31 @@
-from db import Base
-from db import engine
 from db import get_session
 from models.player import Player
 from models.player_group import PlayerGroup
 from models.raid_type import RaidType
 from models.scale import Scale
 from models.speedrun_time import SpeedrunTime
-from sqlalchemy import Table
 
 
-class CmRaidPbTime(Base):
-    __table__ = Table(
-        'cm_raid_pb_time', Base.metadata, autoload_with=engine
-    )
+class RaidTime():
+    def __init__(
+        self,
+        player_id: int,
+        scale_id: int,
+        speedrun_time_id: int,
+        **kwargs
+    ):
+        self.player_id = player_id
+        self.scale_id = scale_id
+        self.speedrun_time_id = speedrun_time_id
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     def get_raid_type(self) -> RaidType:
-        with get_session() as session:
-            return session.query(RaidType).filter(
-                RaidType.identifier == 'Chambers of Xeric: Challenge Mode'
-            ).first()
+        """Each child class of RaidTime must implement this method."""
+
+        raise NotImplementedError(
+            "This method should be implemented in subclasses."
+        )
 
     def get_scale(self) -> Scale:
         with get_session() as session:
@@ -31,6 +38,8 @@ class CmRaidPbTime(Base):
             speedrun_time = session.query(SpeedrunTime).filter(
                 SpeedrunTime.id == self.speedrun_time_id
             ).first()
+            if not speedrun_time:
+                return []
 
             # Find the players for this speedrun time.
             player_group = session.query(PlayerGroup).filter(

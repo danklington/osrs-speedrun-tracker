@@ -8,7 +8,7 @@ from sqlalchemy import func
 
 
 class Leaderboards():
-    def __init__(self, raid_type: str = None, scale: int = None):
+    def __init__(self, raid_type: str, scale: int):
         self._raid_type = raid_type
         self._scale = scale
 
