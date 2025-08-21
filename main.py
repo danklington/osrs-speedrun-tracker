@@ -1020,7 +1020,7 @@ async def submit_tob_from_csv(
     tob_times['verzik_p3'] = tob_times['verzik'] - tob_times['verzik_p2']
 
     # Calculate the total time.
-    tob_times['completed'] = (
+    total_raid_time = (
         tob_times['maiden'] +
         tob_times['bloat'] +
         tob_times['nylocas'] +
@@ -1059,7 +1059,7 @@ async def submit_tob_from_csv(
             SpeedrunTime.raid_type_id == raid_type.id,
             SpeedrunTime.scale_id == scale_type.id,
             SpeedrunTime.player_group_id == player_group_id,
-            SpeedrunTime.time == tob_times['completed']
+            SpeedrunTime.time == total_raid_time
         ).first()
         if not speedrun_time:
             # Save the run to the database.
@@ -1067,7 +1067,7 @@ async def submit_tob_from_csv(
                 raid_type_id=raid_type.id,
                 scale_id=scale_type.id,
                 player_group_id=player_group_id,
-                time=tob_times['completed']
+                time=total_raid_time
             )
             session.add(speedrun_time)
             session.flush()
@@ -1126,17 +1126,18 @@ async def submit_tob_from_csv(
         # Check if the run is a PB.
         better_run_exists = session.query(TobRaidTime).filter(
             TobRaidTime.speedrun_time_id == speedrun_time.id,
-            TobRaidTime.completed <= tob_times['completed']
+            TobRaidTime.completed <= total_raid_time
         ).first()
         if not better_run_exists:
             new_run = TobRaidTime(
                 speedrun_time_id=speedrun_time.id,
+                completed=total_raid_time,
                 **tob_times
             )
             session.add(new_run)
             session.commit()
             message = (
-                f'Submitted `{ticks_to_time_string(tob_times['completed'])}` '
+                f'Submitted `{ticks_to_time_string(total_raid_time)}` '
                 f'in ToB with {scale_type.identifier} scale.'
             )
             embed = confirmation_to_embed('Submission', message)
